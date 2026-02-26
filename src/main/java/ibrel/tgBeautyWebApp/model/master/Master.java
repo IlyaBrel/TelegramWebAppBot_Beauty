@@ -1,5 +1,7 @@
 package ibrel.tgBeautyWebApp.model.master;
 
+import ibrel.tgBeautyWebApp.model.Appointment;
+import ibrel.tgBeautyWebApp.model.WorkSlot;
 import ibrel.tgBeautyWebApp.model.master.service.MasterService;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -37,4 +39,11 @@ public class Master {
     private List<MasterReview> reviews;
     @OneToMany(mappedBy = "master", cascade = CascadeType.ALL)
     private List<MasterWorkExample> works;
+
+    @OneToMany(mappedBy = "master", cascade = CascadeType.ALL)
+    private List<WorkSlot> workSlots;
+
+    @OneToMany(mappedBy = "master", cascade = CascadeType.ALL)
+    private List<Appointment> appointments;
+
 }

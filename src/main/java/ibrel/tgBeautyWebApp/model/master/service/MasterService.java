@@ -31,13 +31,12 @@ public class MasterService {
     @JoinColumn(name = "master_id")
     private Master master;
 
-    // связь с фиксированными деталями
     @OneToOne(mappedBy = "service", cascade = CascadeType.ALL)
     private FixedServiceDetails fixedDetails;
 
-    // связь с переменными деталями
     @OneToMany(mappedBy = "service", cascade = CascadeType.ALL)
     private List<VariableServiceDetails> variableDetails;
+
 }
 
 

@@ -24,7 +24,7 @@ public class VariableServiceDetails {
 
     @ManyToOne
     @JoinColumn(name = "master_service_id")
-    private MasterService service; // ⚡ связь с MasterService
+    private MasterService service;
 }
 
 
