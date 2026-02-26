@@ -24,8 +24,12 @@ public class AppointmentController {
 
     @PostMapping
     public ResponseEntity<AppointmentResponseDto> create(@Valid @RequestBody AppointmentRequestDto request) {
-        var appt = appointmentService.create(mapper.toRequest(request));
+        var internalReq = mapper.toRequest(request);
+        var appt = appointmentService.create(internalReq);
+
         var dto = mapper.toDto(appt);
+
+
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(dto.getId()).toUri();
         return ResponseEntity.created(location).body(dto);
     }

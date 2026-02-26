@@ -43,16 +43,4 @@ public interface AppointmentService {
      * @param serviceIds список id услуг
      * @return созданная Appointment
      */
-    // backward-compatible adapter
-    default Appointment create(Long userId, Long masterId, Long slotId, List<Long> serviceIds) {
-        AppointmentRequest req =
-                AppointmentRequest
-                        .builder()
-                        .userId(userId)
-                        .masterId(masterId)
-                        .slotId(slotId)
-                        .serviceIds(serviceIds)
-                        .variableSelections(Collections.emptyList()).build();
-        return create(req);
-    }
 }

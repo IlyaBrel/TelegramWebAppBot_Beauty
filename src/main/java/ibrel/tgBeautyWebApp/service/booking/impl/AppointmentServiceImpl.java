@@ -1,5 +1,6 @@
 package ibrel.tgBeautyWebApp.service.booking.impl;
 
+
 import ibrel.tgBeautyWebApp.dto.booking.AppointmentRequestDto;
 import ibrel.tgBeautyWebApp.dto.booking.VariableServiceSelectionDto;
 import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
@@ -43,45 +44,55 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Transactional
     public Appointment create(AppointmentRequestDto request) {
         Assert.notNull(request, "request must not be null");
-        Assert.notNull(request.getUserId(), "userId must not be null");
+        Assert.notNull(request.getUserTelegramId(), "userTelegramId must not be null");
         Assert.notNull(request.getMasterId(), "masterId must not be null");
         Assert.notNull(request.getSlotId(), "slotId must not be null");
         Assert.notEmpty(request.getServiceIds(), "serviceIds must not be empty");
 
-        UserTG user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new EntityNotFoundException("User not found id=" + request.getUserId()));
+        // 1) Загрузка пользователя по telegramId (явная семантика)
+        UserTG user = userRepository.findByTelegramId(request.getUserTelegramId())
+                .orElseThrow(() -> new EntityNotFoundException("Пользователь не найден telegramId=" + request.getUserTelegramId()));
 
-        masterRepository.findById(request.getMasterId())
-                .orElseThrow(() -> new EntityNotFoundException("Master not found id=" + request.getMasterId()));
-
-        // Блокируем слот для записи (пессимистическая блокировка)
-        WorkSlot slot = entityManager.find(WorkSlot.class, request.getSlotId(), LockModeType.PESSIMISTIC_WRITE);
-        if (slot == null) throw new EntityNotFoundException("Slot not found id=" + request.getSlotId());
-        if (!slot.getMaster().getId().equals(request.getMasterId())) {
-            log.warn("Slot {} does not belong to master {}", request.getSlotId(), request.getMasterId());
-            throw new IllegalArgumentException("Slot does not belong to master");
+        // 2) Проверка активности пользователя
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            log.warn("Inactive user attempted booking: telegramId={}", request.getUserTelegramId());
+            throw new IllegalStateException("Пользователь не активен");
         }
 
-        // Проверка занятости слота
+        // 3) Проверка существования мастера
+        masterRepository.findById(request.getMasterId())
+                .orElseThrow(() -> new EntityNotFoundException("Мастер не найден id=" + request.getMasterId()));
+
+        // 4) Пессимистическая блокировка слота
+        WorkSlot slot = entityManager.find(WorkSlot.class, request.getSlotId(), LockModeType.PESSIMISTIC_WRITE);
+        if (slot == null) {
+            throw new EntityNotFoundException("Слот не найден id=" + request.getSlotId());
+        }
+        if (slot.getMaster() == null || !slot.getMaster().getId().equals(request.getMasterId())) {
+            log.warn("Slot {} does not belong to master {}", request.getSlotId(), request.getMasterId());
+            throw new IllegalArgumentException("Слот не принадлежит указанному мастеру");
+        }
+
+        // 5) Быстрая проверка занятости слота
         boolean occupied = appointmentRepository.existsBySlotIdAndStatusIn(slot.getId(), ACTIVE_STATUSES);
         if (occupied) {
-            log.warn("Slot id={} already occupied", slot.getId());
-            throw new IllegalStateException("Slot is already booked");
+            log.warn("Attempt to book already occupied slot id={}", slot.getId());
+            throw new IllegalStateException("Слот уже занят");
         }
 
-        // Получаем услуги
+        // 6) Загрузка услуг и валидация
         List<MasterServiceWork> services = masterServiceWorkRepository.findAllById(request.getServiceIds());
         if (services.size() != request.getServiceIds().size()) {
             List<Long> found = services.stream().map(MasterServiceWork::getId).collect(Collectors.toList());
             List<Long> missing = request.getServiceIds().stream().filter(id -> !found.contains(id)).collect(Collectors.toList());
-            throw new EntityNotFoundException("Some services not found: " + missing);
+            throw new EntityNotFoundException("Не найдены услуги: " + missing);
         }
 
-        // Подготовка map для VARIABLE параметров
+        // 7) Подготовка map для переменных параметров
         Map<Long, VariableServiceSelectionDto> variableMap = Optional.ofNullable(request.getVariableSelections())
                 .orElse(Collections.emptyList())
                 .stream()
-                .collect(Collectors.toMap(VariableServiceSelectionDto::getServiceId, v -> v));
+                .collect(Collectors.toMap(VariableServiceSelectionDto::getServiceId, v -> v, (a, b) -> a));
 
         int totalDuration = 0;
         double totalPrice = 0.0;
@@ -89,16 +100,16 @@ public class AppointmentServiceImpl implements AppointmentService {
         for (MasterServiceWork s : services) {
             if (s.getType() == null) {
                 log.warn("Service id={} has null type", s.getId());
-                throw new IllegalArgumentException("Service type is not specified for id=" + s.getId());
+                throw new IllegalArgumentException("Тип услуги не указан id=" + s.getId());
             }
             switch (s.getType()) {
                 case FIXED -> {
                     FixedServiceDetails fd = s.getFixedDetails();
-                    if (fd == null) throw new IllegalArgumentException("Fixed service missing details id=" + s.getId());
+                    if (fd == null) throw new IllegalArgumentException("У фиксированной услуги отсутствуют детали id=" + s.getId());
                     if (fd.getDurationMinutes() == null || fd.getDurationMinutes() <= 0)
-                        throw new IllegalArgumentException("Invalid duration for service id=" + s.getId());
+                        throw new IllegalArgumentException("Неверная длительность для услуги id=" + s.getId());
                     if (fd.getPrice() == null || fd.getPrice() < 0)
-                        throw new IllegalArgumentException("Invalid price for service id=" + s.getId());
+                        throw new IllegalArgumentException("Неверная цена для услуги id=" + s.getId());
                     totalDuration += fd.getDurationMinutes();
                     totalPrice += fd.getPrice();
                 }
@@ -106,9 +117,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                     VariableServiceSelectionDto selection = variableMap.get(s.getId());
                     if (selection == null) {
                         log.warn("Variable service id={} requires parameters", s.getId());
-                        throw new IllegalArgumentException("Variable service requires parameters id=" + s.getId());
+                        throw new IllegalArgumentException("Для вариативной услуги требуются параметры id=" + s.getId());
                     }
-                    // Стратегия: ищем VariableServiceDetails по factorName/factorValue
                     List<VariableServiceDetails> candidates = variableServiceDetailsRepository.findByServiceId(s.getId());
                     Optional<VariableServiceDetails> matched = candidates.stream()
                             .filter(vd -> selection.getFactorName() != null && selection.getFactorValue() != null)
@@ -118,34 +128,36 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                     if (matched.isEmpty()) {
                         log.warn("No matching variable detail for serviceId={} factor={} value={}", s.getId(), selection.getFactorName(), selection.getFactorValue());
-                        throw new IllegalArgumentException("No matching variable option for service id=" + s.getId());
+                        throw new IllegalArgumentException("Нет подходящего варианта для услуги id=" + s.getId());
                     }
                     VariableServiceDetails vd = matched.get();
                     if (vd.getDurationMinutes() == null || vd.getDurationMinutes() <= 0)
-                        throw new IllegalArgumentException("Invalid duration for variable detail id=" + vd.getId());
+                        throw new IllegalArgumentException("Неверная длительность для вариативной опции id=" + vd.getId());
                     if (vd.getPrice() == null || vd.getPrice() < 0)
-                        throw new IllegalArgumentException("Invalid price for variable detail id=" + vd.getId());
+                        throw new IllegalArgumentException("Неверная цена для вариативной опции id=" + vd.getId());
                     totalDuration += vd.getDurationMinutes();
                     totalPrice += vd.getPrice();
                 }
-                default -> throw new IllegalArgumentException("Unsupported service type for id=" + s.getId());
+                default -> throw new IllegalArgumentException("Неподдерживаемый тип услуги id=" + s.getId());
             }
         }
 
+        // 8) Проверка вместимости слота
         long slotMinutes = ChronoUnit.MINUTES.between(slot.getStartTime(), slot.getEndTime());
         if (totalDuration > slotMinutes) {
             log.warn("Total duration {} exceeds slot length {} for slot id={}", totalDuration, slotMinutes, slot.getId());
-            throw new IllegalStateException("Selected services total duration does not fit into the slot");
+            throw new IllegalStateException("Суммарная длительность услуг не помещается в слот");
         }
 
-        // Финальная проверка пересечения (на всякий случай)
+        // 9) Финальная проверка пересечения (защита от гонок)
         boolean overlapping = appointmentRepository.findBySlotIdAndStatusIn(slot.getId(), ACTIVE_STATUSES).stream()
                 .anyMatch(a -> a.getSlot() != null && a.getSlot().getId().equals(slot.getId()));
         if (overlapping) {
             log.warn("Concurrent booking detected for slot id={}", slot.getId());
-            throw new IllegalStateException("Slot is already booked");
+            throw new IllegalStateException("Слот уже занят (конкурентная бронь)");
         }
 
+        // 10) Сборка и сохранение записи
         Appointment appointment = Appointment.builder()
                 .user(user)
                 .master(slot.getMaster())
@@ -157,7 +169,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .build();
 
         Appointment saved = appointmentRepository.save(appointment);
-        log.info("Created appointment id={} userId={} masterId={} slotId={}", saved.getId(), user.getId(), slot.getMaster().getId(), slot.getId());
+        log.info("Создана запись id={} telegramUser={} masterId={} slotId={}", saved.getId(), user.getTelegramId(), slot.getMaster().getId(), slot.getId());
         return saved;
     }
 
@@ -193,7 +205,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         if (requestedByUserId != null && !appt.getUser().getId().equals(requestedByUserId)) {
             log.warn("User {} attempted to cancel appointment {} owned by {}", requestedByUserId, appointmentId, appt.getUser().getId());
-            throw new IllegalArgumentException("User not allowed to cancel this appointment");
+            throw new IllegalArgumentException("Пользователь не может отменить эту запись");
         }
 
         if (AppointmentStatus.CANCELLED.name().equals(appt.getStatus())) {

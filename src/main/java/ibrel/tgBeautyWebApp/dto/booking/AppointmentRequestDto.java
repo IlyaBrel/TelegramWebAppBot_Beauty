@@ -15,7 +15,7 @@ import java.util.List;
 @Builder
 public class AppointmentRequestDto {
     @NotNull(message = "userId must not be null")
-    private Long userId;
+    private Long userTelegramId;;
     @NotNull(message = "masterId must not be null")
     private Long masterId;
     @NotNull(message = "slotId must not be null")
