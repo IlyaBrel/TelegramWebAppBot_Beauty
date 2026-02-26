@@ -1,6 +1,6 @@
-package ibrel.tgBeautyWebApp.model;
+package ibrel.tgBeautyWebApp.model.master;
 
-import ibrel.tgBeautyWebApp.model.master.Master;
+import ibrel.tgBeautyWebApp.model.booking.Appointment;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

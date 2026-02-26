@@ -1,7 +1,9 @@
-package ibrel.tgBeautyWebApp.model;
+package ibrel.tgBeautyWebApp.model.booking;
 
+import ibrel.tgBeautyWebApp.model.UserTG;
+import ibrel.tgBeautyWebApp.model.master.WorkSlot;
 import ibrel.tgBeautyWebApp.model.master.Master;
-import ibrel.tgBeautyWebApp.model.master.service.MasterService;
+import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -49,7 +51,7 @@ public class Appointment {
             joinColumns = @JoinColumn(name = "appointment_id"),
             inverseJoinColumns = @JoinColumn(name = "service_id")
     )
-    private List<MasterService> services;
+    private List<MasterServiceWork> services;
 
     // Выбранный слот времени
     @ManyToOne

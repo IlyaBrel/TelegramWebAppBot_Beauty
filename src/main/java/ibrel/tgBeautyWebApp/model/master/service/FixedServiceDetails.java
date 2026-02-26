@@ -22,7 +22,7 @@ public class FixedServiceDetails {
 
     @OneToOne
     @JoinColumn(name = "master_service_id")
-    private MasterService service;
+    private MasterServiceWork service;
 
 }
 

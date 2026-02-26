@@ -1,8 +1,7 @@
 package ibrel.tgBeautyWebApp.model.master;
 
-import ibrel.tgBeautyWebApp.model.Appointment;
-import ibrel.tgBeautyWebApp.model.WorkSlot;
-import ibrel.tgBeautyWebApp.model.master.service.MasterService;
+import ibrel.tgBeautyWebApp.model.booking.Appointment;
+import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,7 +33,7 @@ public class Master {
     @OneToOne(mappedBy = "master", cascade = CascadeType.ALL)
     private MasterPersonalData personalData;
     @OneToMany(mappedBy = "master", cascade = CascadeType.ALL)
-    private List<MasterService> services;
+    private List<MasterServiceWork> services;
     @OneToMany(mappedBy = "master", cascade = CascadeType.ALL)
     private List<MasterReview> reviews;
     @OneToMany(mappedBy = "master", cascade = CascadeType.ALL)

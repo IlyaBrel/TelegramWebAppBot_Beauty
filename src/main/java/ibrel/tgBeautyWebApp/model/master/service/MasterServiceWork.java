@@ -16,7 +16,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class MasterService {
+public class MasterServiceWork {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
