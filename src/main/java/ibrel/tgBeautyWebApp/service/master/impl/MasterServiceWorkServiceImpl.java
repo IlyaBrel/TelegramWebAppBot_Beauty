@@ -1,8 +1,6 @@
-// src/main/java/ibrel/tgBeautyWebApp/service/master/impl/MasterServiceWorkServiceImpl.java
 package ibrel.tgBeautyWebApp.service.master.impl;
 
 import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
-import ibrel.tgBeautyWebApp.model.booking.Appointment;
 import ibrel.tgBeautyWebApp.model.master.Master;
 import ibrel.tgBeautyWebApp.model.master.service.FixedServiceDetails;
 import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
@@ -138,8 +136,8 @@ public class MasterServiceWorkServiceImpl implements MasterServiceWorkService {
         MasterServiceWork service = masterServiceWorkRepository.findById(serviceId)
                 .orElseThrow(() -> new EntityNotFoundException("Service not found id=" + serviceId));
 
-        boolean used = appointmentRepository.findAll().stream()
-                .anyMatch(a -> a.getServices() != null && a.getServices().stream().anyMatch(s -> s.getId().equals(serviceId)));
+        boolean used = appointmentRepository.existsByItems_Service_Id(serviceId);
+
         if (used) {
             log.warn("Attempt to delete service id={} used in appointments", serviceId);
             throw new IllegalStateException("Service is used in existing appointments and cannot be deleted");
@@ -163,6 +161,13 @@ public class MasterServiceWorkServiceImpl implements MasterServiceWorkService {
         if (fixedDetails.getPrice() == null || fixedDetails.getPrice() < 0)
             throw new IllegalArgumentException("Invalid price for fixed details");
 
+        boolean used = appointmentRepository.existsByItems_Service_Id(serviceId);
+
+        if (used) {
+            log.warn("Attempt to add/update fixed details for service id={} used in appointments", serviceId);
+            throw new IllegalStateException("Cannot add/update fixed details: service used in appointments");
+        }
+
         service.setFixedDetails(fixedDetails);
         MasterServiceWork saved = masterServiceWorkRepository.save(service);
         log.info("Added/updated fixed details for service id={}", serviceId);
@@ -176,8 +181,8 @@ public class MasterServiceWorkServiceImpl implements MasterServiceWorkService {
         MasterServiceWork service = masterServiceWorkRepository.findById(serviceId)
                 .orElseThrow(() -> new EntityNotFoundException("Service not found id=" + serviceId));
 
-        boolean used = appointmentRepository.findAll().stream()
-                .anyMatch(a -> a.getServices() != null && a.getServices().stream().anyMatch(s -> s.getId().equals(serviceId)));
+        boolean used = appointmentRepository.existsByItems_Service_Id(serviceId);
+
         if (used) {
             log.warn("Attempt to remove fixed details for service id={} used in appointments", serviceId);
             throw new IllegalStateException("Cannot remove fixed details: service used in appointments");
@@ -250,10 +255,8 @@ public class MasterServiceWorkServiceImpl implements MasterServiceWorkService {
         VariableServiceDetails existing = variableServiceDetailsRepository.findById(variableDetailId)
                 .orElseThrow(() -> new EntityNotFoundException("Variable detail not found id=" + variableDetailId));
 
-        boolean used = appointmentRepository.findAll().stream()
-                .anyMatch(a -> a.getServices() != null && a.getServices().stream()
-                        .anyMatch(s -> s.getVariableDetails() != null && s.getVariableDetails().stream()
-                                .anyMatch(v -> v.getId().equals(variableDetailId))));
+        boolean used = appointmentRepository.existsByItems_VariableDetails_Id(variableDetailId);
+
         if (used) {
             log.warn("Attempt to delete variable detail id={} used in appointments", variableDetailId);
             throw new IllegalStateException("Variable detail is used in existing appointments and cannot be deleted");

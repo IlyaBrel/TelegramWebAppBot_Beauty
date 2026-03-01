@@ -9,16 +9,10 @@ import lombok.*;
 public class MasterDto {
     private Long id;
     private Boolean active;
-    private String firstName;
-    private String lastName;
-    private String description;
-    private String phone;
+    private String imageUrl;
+    private MasterPersonalDataDto personalData;
+    private MasterAddressDto address;
     private Integer experienceYears;
     private Integer completedJobs;
-    private String city;
-    private String street;
-    private String house;
-    private String floor;
-    private String apartment;
-    private String placeOnTheMap;
+    private Double averageRating;
 }

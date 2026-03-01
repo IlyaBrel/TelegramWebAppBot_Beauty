@@ -1,20 +1,20 @@
 package ibrel.tgBeautyWebApp.model.booking;
 
-import ibrel.tgBeautyWebApp.model.UserTG;
-import ibrel.tgBeautyWebApp.model.master.WorkSlot;
 import ibrel.tgBeautyWebApp.model.master.Master;
-import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
+import ibrel.tgBeautyWebApp.model.master.WorkSlot;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "appointments")
+@Table(name = "appointments", indexes = {
+        @Index(name = "idx_appointments_master_id", columnList = "master_id"),
+        @Index(name = "idx_appointments_slot_id", columnList = "slot_id"),
+        @Index(name = "idx_appointments_client_id", columnList = "client_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,39 +25,32 @@ public class Appointment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Когда была создана запись
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "client_id", length = 200, nullable = false)
+    private String clientId;
 
-    // Итоговое время всех процедур (в минутах)
-    private Integer totalDuration;
-
-    // Итоговая цена всех процедур
-    private Double totalPrice;
-
-    // Клиент
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private UserTG user;
-
-    // Мастер
-    @ManyToOne
-    @JoinColumn(name = "master_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "master_id", nullable = false)
+    @JsonIgnore
     private Master master;
 
-    // Выбранные услуги (их может быть несколько)
-    @ManyToMany
-    @JoinTable(
-            name = "appointment_services",
-            joinColumns = @JoinColumn(name = "appointment_id"),
-            inverseJoinColumns = @JoinColumn(name = "service_id")
-    )
-    private List<MasterServiceWork> services;
-
-    // Выбранный слот времени
-    @ManyToOne
-    @JoinColumn(name = "slot_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "slot_id", nullable = false)
     private WorkSlot slot;
 
-    // Статус записи
-    private String status; // BOOKED, COMPLETED, CANCELLED
+    @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AppointmentServiceItem> items;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status status;
+
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+
+    public enum Status {
+        PENDING,
+        CONFIRMED,
+        CANCELLED,
+        COMPLETED
+    }
 }

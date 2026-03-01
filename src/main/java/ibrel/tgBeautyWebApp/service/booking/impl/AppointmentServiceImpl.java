@@ -1,29 +1,26 @@
 package ibrel.tgBeautyWebApp.service.booking.impl;
 
-
-import ibrel.tgBeautyWebApp.dto.booking.AppointmentRequestDto;
-import ibrel.tgBeautyWebApp.dto.booking.VariableServiceSelectionDto;
+import ibrel.tgBeautyWebApp.dto.booking.ServiceSelectionDto;
 import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
-import ibrel.tgBeautyWebApp.model.UserTG;
 import ibrel.tgBeautyWebApp.model.booking.Appointment;
-import ibrel.tgBeautyWebApp.model.booking.AppointmentStatus;
+import ibrel.tgBeautyWebApp.model.booking.AppointmentServiceItem;
+import ibrel.tgBeautyWebApp.model.master.Master;
 import ibrel.tgBeautyWebApp.model.master.WorkSlot;
-import ibrel.tgBeautyWebApp.model.master.service.FixedServiceDetails;
 import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
 import ibrel.tgBeautyWebApp.model.master.service.VariableServiceDetails;
 import ibrel.tgBeautyWebApp.repository.*;
 import ibrel.tgBeautyWebApp.service.booking.AppointmentService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,145 +28,104 @@ import java.util.stream.Collectors;
 public class AppointmentServiceImpl implements AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
-    private final UserRepository userRepository;
+    private final AppointmentServiceItemRepository itemRepository;
     private final MasterRepository masterRepository;
     private final WorkSlotRepository workSlotRepository;
     private final MasterServiceWorkRepository masterServiceWorkRepository;
     private final VariableServiceDetailsRepository variableServiceDetailsRepository;
-    private final EntityManager entityManager;
-
-    private static final Set<String> ACTIVE_STATUSES = Set.of(AppointmentStatus.BOOKED.name(), AppointmentStatus.CONFIRMED.name());
 
     @Override
     @Transactional
-    public Appointment create(AppointmentRequestDto request) {
-        Assert.notNull(request, "request must not be null");
-        Assert.notNull(request.getUserTelegramId(), "userTelegramId must not be null");
-        Assert.notNull(request.getMasterId(), "masterId must not be null");
-        Assert.notNull(request.getSlotId(), "slotId must not be null");
-        Assert.notEmpty(request.getServiceIds(), "serviceIds must not be empty");
+    public Appointment createAppointment(String clientId,
+                                         Long masterId,
+                                         Long slotId,
+                                         List<ServiceSelectionDto> services) {
 
-        // 1) Загрузка пользователя по telegramId (явная семантика)
-        UserTG user = userRepository.findByTelegramId(request.getUserTelegramId())
-                .orElseThrow(() -> new EntityNotFoundException("Пользователь не найден telegramId=" + request.getUserTelegramId()));
+        Assert.hasText(clientId, "clientId must not be empty");
+        Assert.notNull(masterId, "masterId must not be null");
+        Assert.notNull(slotId, "slotId must not be null");
+        Assert.notEmpty(services, "services must not be empty");
 
-        // 2) Проверка активности пользователя
-        if (!Boolean.TRUE.equals(user.getActive())) {
-            log.warn("Inactive user attempted booking: telegramId={}", request.getUserTelegramId());
-            throw new IllegalStateException("Пользователь не активен");
+        Master master = masterRepository.findById(masterId)
+                .orElseThrow(() -> new EntityNotFoundException("Master not found id=" + masterId));
+
+        WorkSlot slot = workSlotRepository.findById(slotId)
+                .orElseThrow(() -> new EntityNotFoundException("Slot not found id=" + slotId));
+
+        if (slot.getMaster() == null || !slot.getMaster().getId().equals(masterId)) {
+            throw new IllegalArgumentException("Slot does not belong to the specified master");
         }
 
-        // 3) Проверка существования мастера
-        masterRepository.findById(request.getMasterId())
-                .orElseThrow(() -> new EntityNotFoundException("Мастер не найден id=" + request.getMasterId()));
-
-        // 4) Пессимистическая блокировка слота
-        WorkSlot slot = entityManager.find(WorkSlot.class, request.getSlotId(), LockModeType.PESSIMISTIC_WRITE);
-        if (slot == null) {
-            throw new EntityNotFoundException("Слот не найден id=" + request.getSlotId());
+        if (appointmentRepository.existsBySlot_Id(slotId)) {
+            throw new IllegalStateException("Slot is already booked");
         }
-        if (slot.getMaster() == null || !slot.getMaster().getId().equals(request.getMasterId())) {
-            log.warn("Slot {} does not belong to master {}", request.getSlotId(), request.getMasterId());
-            throw new IllegalArgumentException("Слот не принадлежит указанному мастеру");
-        }
-
-        // 5) Быстрая проверка занятости слота
-        boolean occupied = appointmentRepository.existsBySlotIdAndStatusIn(slot.getId(), ACTIVE_STATUSES);
-        if (occupied) {
-            log.warn("Attempt to book already occupied slot id={}", slot.getId());
-            throw new IllegalStateException("Слот уже занят");
-        }
-
-        // 6) Загрузка услуг и валидация
-        List<MasterServiceWork> services = masterServiceWorkRepository.findAllById(request.getServiceIds());
-        if (services.size() != request.getServiceIds().size()) {
-            List<Long> found = services.stream().map(MasterServiceWork::getId).collect(Collectors.toList());
-            List<Long> missing = request.getServiceIds().stream().filter(id -> !found.contains(id)).collect(Collectors.toList());
-            throw new EntityNotFoundException("Не найдены услуги: " + missing);
-        }
-
-        // 7) Подготовка map для переменных параметров
-        Map<Long, VariableServiceSelectionDto> variableMap = Optional.ofNullable(request.getVariableSelections())
-                .orElse(Collections.emptyList())
-                .stream()
-                .collect(Collectors.toMap(VariableServiceSelectionDto::getServiceId, v -> v, (a, b) -> a));
 
         int totalDuration = 0;
         double totalPrice = 0.0;
 
-        for (MasterServiceWork s : services) {
-            if (s.getType() == null) {
-                log.warn("Service id={} has null type", s.getId());
-                throw new IllegalArgumentException("Тип услуги не указан id=" + s.getId());
-            }
-            switch (s.getType()) {
-                case FIXED -> {
-                    FixedServiceDetails fd = s.getFixedDetails();
-                    if (fd == null) throw new IllegalArgumentException("У фиксированной услуги отсутствуют детали id=" + s.getId());
-                    if (fd.getDurationMinutes() == null || fd.getDurationMinutes() <= 0)
-                        throw new IllegalArgumentException("Неверная длительность для услуги id=" + s.getId());
-                    if (fd.getPrice() == null || fd.getPrice() < 0)
-                        throw new IllegalArgumentException("Неверная цена для услуги id=" + s.getId());
-                    totalDuration += fd.getDurationMinutes();
-                    totalPrice += fd.getPrice();
-                }
-                case VARIABLE -> {
-                    VariableServiceSelectionDto selection = variableMap.get(s.getId());
-                    if (selection == null) {
-                        log.warn("Variable service id={} requires parameters", s.getId());
-                        throw new IllegalArgumentException("Для вариативной услуги требуются параметры id=" + s.getId());
-                    }
-                    List<VariableServiceDetails> candidates = variableServiceDetailsRepository.findByServiceId(s.getId());
-                    Optional<VariableServiceDetails> matched = candidates.stream()
-                            .filter(vd -> selection.getFactorName() != null && selection.getFactorValue() != null)
-                            .filter(vd -> selection.getFactorName().equalsIgnoreCase(vd.getFactorName())
-                                    && selection.getFactorValue().equalsIgnoreCase(vd.getFactorValue()))
-                            .findFirst();
-
-                    if (matched.isEmpty()) {
-                        log.warn("No matching variable detail for serviceId={} factor={} value={}", s.getId(), selection.getFactorName(), selection.getFactorValue());
-                        throw new IllegalArgumentException("Нет подходящего варианта для услуги id=" + s.getId());
-                    }
-                    VariableServiceDetails vd = matched.get();
-                    if (vd.getDurationMinutes() == null || vd.getDurationMinutes() <= 0)
-                        throw new IllegalArgumentException("Неверная длительность для вариативной опции id=" + vd.getId());
-                    if (vd.getPrice() == null || vd.getPrice() < 0)
-                        throw new IllegalArgumentException("Неверная цена для вариативной опции id=" + vd.getId());
-                    totalDuration += vd.getDurationMinutes();
-                    totalPrice += vd.getPrice();
-                }
-                default -> throw new IllegalArgumentException("Неподдерживаемый тип услуги id=" + s.getId());
-            }
-        }
-
-        // 8) Проверка вместимости слота
-        long slotMinutes = ChronoUnit.MINUTES.between(slot.getStartTime(), slot.getEndTime());
-        if (totalDuration > slotMinutes) {
-            log.warn("Total duration {} exceeds slot length {} for slot id={}", totalDuration, slotMinutes, slot.getId());
-            throw new IllegalStateException("Суммарная длительность услуг не помещается в слот");
-        }
-
-        // 9) Финальная проверка пересечения (защита от гонок)
-        boolean overlapping = appointmentRepository.findBySlotIdAndStatusIn(slot.getId(), ACTIVE_STATUSES).stream()
-                .anyMatch(a -> a.getSlot() != null && a.getSlot().getId().equals(slot.getId()));
-        if (overlapping) {
-            log.warn("Concurrent booking detected for slot id={}", slot.getId());
-            throw new IllegalStateException("Слот уже занят (конкурентная бронь)");
-        }
-
-        // 10) Сборка и сохранение записи
         Appointment appointment = Appointment.builder()
-                .user(user)
-                .master(slot.getMaster())
+                .clientId(clientId)
+                .master(master)
                 .slot(slot)
-                .services(services)
-                .totalDuration(totalDuration)
-                .totalPrice(totalPrice)
-                .status(AppointmentStatus.BOOKED.name())
+                .status(Appointment.Status.PENDING)
+                .createdAt(OffsetDateTime.now())
                 .build();
 
+        List<AppointmentServiceItem> items = new ArrayList<>();
+
+        for (ServiceSelectionDto sel : services) {
+            MasterServiceWork service = masterServiceWorkRepository.findById(sel.getServiceId())
+                    .orElseThrow(() -> new EntityNotFoundException("Service not found id=" + sel.getServiceId()));
+
+            if (service.getMaster() == null || !service.getMaster().getId().equals(masterId)) {
+                throw new IllegalArgumentException("Service id=" + sel.getServiceId() + " does not belong to master id=" + masterId);
+            }
+
+            List<VariableServiceDetails> vars = new ArrayList<>();
+
+            if (service.getType() != null && service.getType().name().equals("FIXED")) {
+                if (service.getFixedDetails() == null) {
+                    throw new IllegalArgumentException("Fixed service id=" + service.getId() + " has no fixed details");
+                }
+                totalDuration += Optional.ofNullable(service.getFixedDetails().getDurationMinutes()).orElse(0);
+                totalPrice += Optional.ofNullable(service.getFixedDetails().getPrice()).orElse(0.0);
+            } else { // VARIABLE
+                if (sel.getVariableDetailIds() == null || sel.getVariableDetailIds().isEmpty()) {
+                    throw new IllegalArgumentException("Variable service id=" + service.getId() + " requires variable details");
+                }
+                for (Long varId : sel.getVariableDetailIds()) {
+                    VariableServiceDetails v = variableServiceDetailsRepository.findById(varId)
+                            .orElseThrow(() -> new EntityNotFoundException("Variable detail not found id=" + varId));
+                    if (v.getService() == null || !v.getService().getId().equals(service.getId())) {
+                        throw new IllegalArgumentException("Variable detail id=" + varId + " does not belong to service id=" + service.getId());
+                    }
+                    vars.add(v);
+                    totalDuration += Optional.ofNullable(v.getDurationMinutes()).orElse(0);
+                    totalPrice += Optional.ofNullable(v.getPrice()).orElse(0.0);
+                }
+            }
+
+            AppointmentServiceItem item = AppointmentServiceItem.builder()
+                    .appointment(appointment)
+                    .service(service)
+                    .variableDetails(vars)
+                    .build();
+
+            items.add(item);
+        }
+
+        long slotMinutes = Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes();
+        if (totalDuration > slotMinutes) {
+            throw new IllegalArgumentException("Total duration " + totalDuration + " exceeds slot duration " + slotMinutes);
+        }
+
+        appointment.setItems(items);
         Appointment saved = appointmentRepository.save(appointment);
-        log.info("Создана запись id={} telegramUser={} masterId={} slotId={}", saved.getId(), user.getTelegramId(), slot.getMaster().getId(), slot.getId());
+        items.forEach(itemRepository::save);
+
+        log.info("Created appointment id={} masterId={} slotId={} client={} servicesCount={}",
+                saved.getId(), masterId, slotId, clientId, items.size());
+
         return saved;
     }
 
@@ -183,57 +139,48 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Override
     public List<Appointment> getByMaster(Long masterId) {
         Assert.notNull(masterId, "masterId must not be null");
-        masterRepository.findById(masterId)
-                .orElseThrow(() -> new EntityNotFoundException("Master not found id=" + masterId));
-        return appointmentRepository.findByMasterId(masterId);
+        if (!masterRepository.existsById(masterId)) {
+            throw new EntityNotFoundException("Master not found id=" + masterId);
+        }
+        return appointmentRepository.findByMaster_IdOrderByCreatedAtDesc(masterId);
     }
 
     @Override
-    public List<Appointment> getByUser(Long userId) {
-        Assert.notNull(userId, "userId must not be null");
-        userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found id=" + userId));
-        return appointmentRepository.findByUserId(userId);
+    public List<Appointment> getByClient(String clientId) {
+        Assert.hasText(clientId, "clientId must not be empty");
+        return appointmentRepository.findByClientIdOrderByCreatedAtDesc(clientId);
     }
 
     @Override
     @Transactional
-    public Appointment cancel(Long appointmentId, Long requestedByUserId) {
+    public Appointment cancel(Long appointmentId, String byClientId) {
         Assert.notNull(appointmentId, "appointmentId must not be null");
-        Appointment appt = appointmentRepository.findById(appointmentId)
+        Appointment existing = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found id=" + appointmentId));
 
-        if (requestedByUserId != null && !appt.getUser().getId().equals(requestedByUserId)) {
-            log.warn("User {} attempted to cancel appointment {} owned by {}", requestedByUserId, appointmentId, appt.getUser().getId());
-            throw new IllegalArgumentException("Пользователь не может отменить эту запись");
+        if (byClientId != null && !byClientId.equals(existing.getClientId())) {
+            // сюда можно добавить проверку ролей (мастер/админ) через SecurityContext
+            throw new IllegalArgumentException("Only the client who created the appointment or authorized user can cancel it");
         }
 
-        if (AppointmentStatus.CANCELLED.name().equals(appt.getStatus())) {
-            log.debug("Appointment id={} already cancelled", appointmentId);
-            return appt;
-        }
-
-        appt.setStatus(AppointmentStatus.CANCELLED.name());
-        Appointment saved = appointmentRepository.save(appt);
-        log.info("Cancelled appointment id={}", appointmentId);
+        existing.setStatus(Appointment.Status.CANCELLED);
+        existing.setUpdatedAt(OffsetDateTime.now());
+        Appointment saved = appointmentRepository.save(existing);
+        log.info("Cancelled appointment id={} by client={}", appointmentId, byClientId);
         return saved;
     }
 
     @Override
     @Transactional
-    public Appointment complete(Long appointmentId) {
+    public Appointment confirm(Long appointmentId) {
         Assert.notNull(appointmentId, "appointmentId must not be null");
-        Appointment appt = appointmentRepository.findById(appointmentId)
+        Appointment existing = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found id=" + appointmentId));
 
-        if (AppointmentStatus.COMPLETED.name().equals(appt.getStatus())) {
-            log.debug("Appointment id={} already completed", appointmentId);
-            return appt;
-        }
-
-        appt.setStatus(AppointmentStatus.COMPLETED.name());
-        Appointment saved = appointmentRepository.save(appt);
-        log.info("Completed appointment id={}", appointmentId);
+        existing.setStatus(Appointment.Status.CONFIRMED);
+        existing.setUpdatedAt(OffsetDateTime.now());
+        Appointment saved = appointmentRepository.save(existing);
+        log.info("Confirmed appointment id={}", appointmentId);
         return saved;
     }
 }

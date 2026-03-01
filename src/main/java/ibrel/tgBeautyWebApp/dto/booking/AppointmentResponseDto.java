@@ -10,13 +10,18 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class AppointmentResponseDto {
+
     private Long id;
-    private Long userId;
+    private String clientId;
     private Long masterId;
     private Long slotId;
-    private List<ServiceSummaryDto> services;
-    private Integer totalDuration;
-    private Double totalPrice;
     private String status;
+
+    private List<AppointmentItemDto> items;
+
+    private Integer totalDurationMinutes;
+    private Double totalPrice;
+
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }
