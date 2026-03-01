@@ -1,32 +1,37 @@
 package ibrel.tgBeautyWebApp.model.master;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
-@Table(name = "master_personal_data")
+@Table(name = "master_personal_data", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"master_id"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class MasterPersonalData {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String firstName;
     private String lastName;
-    private String instUserId;
+
+    @Column(length = 2000)
     private String description;
+
     private String phone;
     private Integer experienceYears;
     private Integer completedJobs;
 
-    @OneToOne
-    @JoinColumn(name = "master_id")
+    private String instUserId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "master_id", unique = true)
+    @JsonIgnore
     private Master master;
 }
-

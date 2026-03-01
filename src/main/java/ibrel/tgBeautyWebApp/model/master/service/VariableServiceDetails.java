@@ -1,5 +1,6 @@
 package ibrel.tgBeautyWebApp.model.master.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,10 +22,13 @@ public class VariableServiceDetails {
     private String factorValue;
     private Double price;
     private Integer durationMinutes;
+    private String description;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "master_service_id")
+    @JsonIgnore
     private MasterServiceWork service;
 }
+
 
 

@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -21,16 +22,27 @@ public class WorkSlot {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String dayOfWeek; // MONDAY, TUESDAY...
+    /**
+     * День недели в формате Enum.name() — MONDAY, TUESDAY и т.д.
+     * Храним как String для простоты запросов.
+     */
+    private String dayOfWeek;
 
-    private LocalTime startTime; // например 13:10
-    private LocalTime endTime;   // например 14:10
+    /**
+     * Время начала и конца слота (локальное время, без даты).
+     * Пример: startTime = 13:10, endTime = 14:10
+     */
+    private LocalTime startTime;
+    private LocalTime endTime;
 
-    @ManyToOne
+    private String note;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "master_id")
+    @JsonIgnore
     private Master master;
 
-    @OneToMany(mappedBy = "slot")
+    @OneToMany(mappedBy = "slot", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Appointment> appointments;
-
 }

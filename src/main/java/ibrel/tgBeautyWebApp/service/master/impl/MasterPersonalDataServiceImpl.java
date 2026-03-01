@@ -30,12 +30,11 @@ public class MasterPersonalDataServiceImpl implements MasterPersonalDataService 
                 .orElseThrow(() -> new EntityNotFoundException("Master not found id=" + masterId));
 
         if (master.getPersonalData() != null) {
-            log.warn("Attempt to create personal data for master id={} which already has personalData id={}",
-                    masterId, master.getPersonalData().getId());
+            log.warn("Attempt to create personal data for master id={} which already has personalData id={}", masterId, master.getPersonalData().getId());
             throw new IllegalStateException("Personal data already exists for master");
         }
 
-        validatePersonalData(personalData);
+        validate(personalData);
 
         personalData.setMaster(master);
         MasterPersonalData saved = personalDataRepository.save(personalData);
@@ -59,7 +58,7 @@ public class MasterPersonalDataServiceImpl implements MasterPersonalDataService 
         if (existing == null) {
             // create if absent
             personalData.setMaster(master);
-            validatePersonalData(personalData);
+            validate(personalData);
             MasterPersonalData saved = personalDataRepository.save(personalData);
             master.setPersonalData(saved);
             masterRepository.save(master);
@@ -67,16 +66,16 @@ public class MasterPersonalDataServiceImpl implements MasterPersonalDataService 
             return saved;
         }
 
-        // partial update: null fields are ignored
+        // partial update: null fields ignored
         if (personalData.getFirstName() != null) existing.setFirstName(personalData.getFirstName());
         if (personalData.getLastName() != null) existing.setLastName(personalData.getLastName());
-        if (personalData.getInstUserId() != null) existing.setInstUserId(personalData.getInstUserId());
         if (personalData.getDescription() != null) existing.setDescription(personalData.getDescription());
         if (personalData.getPhone() != null) existing.setPhone(personalData.getPhone());
         if (personalData.getExperienceYears() != null) existing.setExperienceYears(personalData.getExperienceYears());
         if (personalData.getCompletedJobs() != null) existing.setCompletedJobs(personalData.getCompletedJobs());
+        if (personalData.getInstUserId() != null) existing.setInstUserId(personalData.getInstUserId());
 
-        validatePersonalData(existing);
+        validate(existing);
 
         MasterPersonalData saved = personalDataRepository.save(existing);
         log.info("Updated personal data id={} for master id={}", saved.getId(), masterId);
@@ -86,12 +85,8 @@ public class MasterPersonalDataServiceImpl implements MasterPersonalDataService 
     @Override
     public MasterPersonalData getByMasterId(Long masterId) {
         Assert.notNull(masterId, "masterId must not be null");
-        Master master = masterRepository.findById(masterId)
-                .orElseThrow(() -> new EntityNotFoundException("Master not found id=" + masterId));
-
-        MasterPersonalData pd = master.getPersonalData();
-        if (pd == null) throw new EntityNotFoundException("Personal data not found for master id=" + masterId);
-        return pd;
+        return personalDataRepository.findByMasterId(masterId)
+                .orElseThrow(() -> new EntityNotFoundException("Personal data not found for master id=" + masterId));
     }
 
     @Override
@@ -113,19 +108,12 @@ public class MasterPersonalDataServiceImpl implements MasterPersonalDataService 
         log.info("Deleted personal data id={} for master id={}", pd.getId(), masterId);
     }
 
-    // базовая валидация полей личных данных
-    private void validatePersonalData(MasterPersonalData pd) {
+    private void validate(MasterPersonalData pd) {
         if (pd.getFirstName() != null && pd.getFirstName().length() > 100) {
             throw new IllegalArgumentException("firstName length must be <= 100");
         }
         if (pd.getLastName() != null && pd.getLastName().length() > 100) {
             throw new IllegalArgumentException("lastName length must be <= 100");
-        }
-        if (pd.getInstUserId() != null && pd.getInstUserId().length() > 100) {
-            throw new IllegalArgumentException("instUserId length must be <= 100");
-        }
-        if (pd.getDescription() != null && pd.getDescription().length() > 2000) {
-            throw new IllegalArgumentException("description length must be <= 2000");
         }
         if (pd.getPhone() != null && pd.getPhone().length() > 50) {
             throw new IllegalArgumentException("phone length must be <= 50");
@@ -135,6 +123,9 @@ public class MasterPersonalDataServiceImpl implements MasterPersonalDataService 
         }
         if (pd.getCompletedJobs() != null && pd.getCompletedJobs() < 0) {
             throw new IllegalArgumentException("completedJobs must be >= 0");
+        }
+        if (pd.getInstUserId() != null && pd.getInstUserId().length() > 200) {
+            throw new IllegalArgumentException("instUserId length must be <= 200");
         }
     }
 }

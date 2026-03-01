@@ -56,7 +56,6 @@ public class MasterAddressServiceImpl implements MasterAddressService {
 
         MasterAddress existing = master.getAddress();
         if (existing == null) {
-            // Если адреса нет — создаём новый
             address.setMaster(master);
             validateAddressFields(address);
             MasterAddress saved = addressRepository.save(address);
@@ -66,7 +65,6 @@ public class MasterAddressServiceImpl implements MasterAddressService {
             return saved;
         }
 
-        // Частичное обновление полей (null-поля игнорируются)
         if (address.getCity() != null) existing.setCity(address.getCity());
         if (address.getStreet() != null) existing.setStreet(address.getStreet());
         if (address.getHouse() != null) existing.setHouse(address.getHouse());
@@ -84,14 +82,8 @@ public class MasterAddressServiceImpl implements MasterAddressService {
     @Override
     public MasterAddress getByMasterId(Long masterId) {
         Assert.notNull(masterId, "masterId must not be null");
-        Master master = masterRepository.findById(masterId)
-                .orElseThrow(() -> new EntityNotFoundException("Master not found id=" + masterId));
-
-        MasterAddress address = master.getAddress();
-        if (address == null) {
-            throw new EntityNotFoundException("Address not found for master id=" + masterId);
-        }
-        return address;
+        return addressRepository.findByMasterId(masterId)
+                .orElseThrow(() -> new EntityNotFoundException("Address not found for master id=" + masterId));
     }
 
     @Override
@@ -113,7 +105,6 @@ public class MasterAddressServiceImpl implements MasterAddressService {
         log.info("Deleted address id={} for master id={}", address.getId(), masterId);
     }
 
-    // Валидация полей адреса: базовые проверки длины и формата (можно расширить)
     private void validateAddressFields(MasterAddress address) {
         if (address.getCity() != null && address.getCity().length() > 100) {
             throw new IllegalArgumentException("City length must be <= 100");

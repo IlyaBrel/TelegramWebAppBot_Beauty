@@ -1,5 +1,6 @@
 package ibrel.tgBeautyWebApp.model.master.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,11 +20,13 @@ public class FixedServiceDetails {
 
     private Double price;
     private Integer durationMinutes;
+    private String description;
 
     @OneToOne
     @JoinColumn(name = "master_service_id")
+    @JsonIgnore
     private MasterServiceWork service;
-
 }
+
 
 

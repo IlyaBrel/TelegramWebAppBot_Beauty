@@ -1,10 +1,7 @@
 package ibrel.tgBeautyWebApp.model.master;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "master_addresses")
@@ -13,20 +10,20 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class MasterAddress {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String city;       // город
-    private String street;     // улица
-    private String house;      // дом
-    private String floor;      // этаж
-    private String apartment;  // квартира
+    private String city;
+    private String street;
+    private String house;
+    private String floor;
+    private String apartment;
 
-    private String placeOnTheMap; //карта
+    @Column(name = "place_on_the_map", length = 500)
+    private String placeOnTheMap;
 
-    @OneToOne
-    @JoinColumn(name = "master_id")
-    private Master master;     // связь с мастером
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "master_id", unique = true)
+    private Master master;
 }
