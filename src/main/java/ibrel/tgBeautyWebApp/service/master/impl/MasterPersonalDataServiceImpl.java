@@ -56,15 +56,14 @@ public class MasterPersonalDataServiceImpl implements MasterPersonalDataService 
 
         MasterPersonalData existing = master.getPersonalData();
         if (existing == null) {
-            // create if absent
             personalData.setMaster(master);
             validate(personalData);
             MasterPersonalData saved = personalDataRepository.save(personalData);
-            master.setPersonalData(saved);
+            master.setPersonalData(existing);
             masterRepository.save(master);
-            log.info("Added personal data id={} for master id={}", saved.getId(), masterId);
             return saved;
         }
+
 
         // partial update: null fields ignored
         if (personalData.getFirstName() != null) existing.setFirstName(personalData.getFirstName());

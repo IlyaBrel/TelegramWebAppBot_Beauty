@@ -4,6 +4,7 @@ import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
 import ibrel.tgBeautyWebApp.model.UserTG;
 import ibrel.tgBeautyWebApp.model.enums.UserRole;
 import ibrel.tgBeautyWebApp.repository.UserRepository;
+import ibrel.tgBeautyWebApp.service.TelegramNotificationService;
 import ibrel.tgBeautyWebApp.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepo;
+    private final TelegramNotificationService telegramNotificationService;
 
     @Override
     @Transactional
@@ -139,7 +141,16 @@ public class UserServiceImpl implements UserService {
         target.setActive(true);
         target.setCreatedByAdminTelegramId(adminTelegramId);
         target.setUpdatedAt(LocalDateTime.now());
-        return userRepo.save(target);
+        UserTG saved = userRepo.save(target);
+
+        // ✅ Отправляем уведомление пользователю в Telegram
+        try {
+            telegramNotificationService.notifyActivated(targetTelegramId);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Could not send activation notification to :" + targetTelegramId + e.getMessage());
+        }
+
+        return saved;
     }
 
     @Override

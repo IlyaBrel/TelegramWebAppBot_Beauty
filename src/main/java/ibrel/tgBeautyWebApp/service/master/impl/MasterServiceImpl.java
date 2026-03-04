@@ -5,6 +5,7 @@ import ibrel.tgBeautyWebApp.model.booking.Appointment;
 import ibrel.tgBeautyWebApp.model.master.*;
 import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
 import ibrel.tgBeautyWebApp.repository.MasterRepository;
+import ibrel.tgBeautyWebApp.service.UserService;
 import ibrel.tgBeautyWebApp.service.master.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,14 +30,19 @@ public class MasterServiceImpl implements MasterService {
     private final MasterReviewService reviewService;
     private final MasterWorkExampleService workExampleService;
 
+    private final UserService userService;
+
     @Override
     @Transactional
     public Master create(Master master) {
         Assert.notNull(master, "Master must not be null");
+        Assert.notNull(master.getTelegramId(), "Telegram Id must not be null");
         master.setCreatedAt(OffsetDateTime.now());
+        master.setTelegramId(userService.findByTelegramId(master.getTelegramId()).get().getTelegramId());
         Master saved = masterRepository.save(master);
         log.info("Created master id={}", saved.getId());
         return saved;
+
     }
 
     @Override

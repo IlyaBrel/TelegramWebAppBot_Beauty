@@ -36,10 +36,28 @@ public class MasterServiceWorkMapper {
         if (dto.getType() != null) {
             try {
                 s.setType(MasterServiceType.valueOf(dto.getType()));
-            } catch (IllegalArgumentException ignored) { /* validation in service */ }
+            } catch (IllegalArgumentException ignored) {}
         }
-        s.setFixedDetails(toFixedEntity(dto.getFixedDetails()));
-        s.setVariableDetails(toVariableEntityList(dto.getVariableDetails()));
+
+        // ✅ Устанавливаем двустороннюю связь для fixedDetails
+        if (dto.getFixedDetails() != null) {
+            FixedServiceDetails fd = toFixedEntity(dto.getFixedDetails());
+            fd.setService(s);          // ← вот этого не хватало
+            s.setFixedDetails(fd);
+        }
+
+        // ✅ Устанавливаем двустороннюю связь для variableDetails
+        if (dto.getVariableDetails() != null) {
+            List<VariableServiceDetails> vars = dto.getVariableDetails().stream()
+                    .map(vDto -> {
+                        VariableServiceDetails v = toVariableEntity(vDto);
+                        v.setService(s);   // ← и этого
+                        return v;
+                    })
+                    .collect(Collectors.toList());
+            s.setVariableDetails(vars);
+        }
+
         return s;
     }
 

@@ -20,6 +20,9 @@ public class Master {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private Long telegramId;
+
     private Boolean active;
 
     @Column(name = "image_url", length = 1000)

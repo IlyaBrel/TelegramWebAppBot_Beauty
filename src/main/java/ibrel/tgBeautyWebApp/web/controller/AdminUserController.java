@@ -1,8 +1,11 @@
 package ibrel.tgBeautyWebApp.web.controller;
 
+import ibrel.tgBeautyWebApp.dto.booking.AppointmentResponseDto;
 import ibrel.tgBeautyWebApp.model.UserTG;
 import ibrel.tgBeautyWebApp.model.enums.UserRole;
 import ibrel.tgBeautyWebApp.service.UserService;
+import ibrel.tgBeautyWebApp.service.booking.AppointmentService;
+import ibrel.tgBeautyWebApp.web.mapper.AppointmentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +18,8 @@ import java.util.List;
 public class AdminUserController {
 
     private final UserService userService;
+    private final AppointmentService appointmentService;
+    private final AppointmentMapper mapper;
 
     // Список пользователей, ожидающих активации
     @GetMapping("/pending")
@@ -43,5 +48,52 @@ public class AdminUserController {
                                            @RequestParam Long adminTelegramId) {
         userService.changeRole(telegramId, role, adminTelegramId);
         return ResponseEntity.ok().build();
+    }
+
+    // Все пользователи (не только pending)
+    @GetMapping
+    public ResponseEntity<List<UserTG>> getAllUsers() {
+        return ResponseEntity.ok(userService.findAll());
+    }
+
+    // Получить одного пользователя
+    @GetMapping("/{telegramId}")
+    public ResponseEntity<UserTG> getUser(@PathVariable Long telegramId) {
+        return userService.findByTelegramId(telegramId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Обновить пользователя
+    @PutMapping("/{telegramId}")
+    public ResponseEntity<UserTG> updateUser(@PathVariable Long telegramId,
+                                             @RequestBody UserTG dto,
+                                             @RequestParam Long adminTelegramId) {
+        UserTG updated = userService.updateUser(telegramId, dto, adminTelegramId);
+        return ResponseEntity.ok(updated);
+    }
+
+    // Деактивировать пользователя
+    @PostMapping("/{telegramId}/deactivate")
+    public ResponseEntity<Void> deactivate(@PathVariable Long telegramId,
+                                           @RequestParam Long adminTelegramId) {
+        userService.changeActivity(telegramId, false, adminTelegramId);
+        return ResponseEntity.ok().build();
+    }
+
+    // Удалить пользователя
+    @DeleteMapping("/{telegramId}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long telegramId) {
+        userService.deleteByTelegramId(telegramId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // Заказы пользователя
+    @GetMapping("/{clientId}/appointments")
+    public ResponseEntity<List<AppointmentResponseDto>> getUserAppointments(
+            @PathVariable String clientId) {
+        List<AppointmentResponseDto> list = appointmentService.getByClient(clientId)
+                .stream().map(mapper::toDto).toList();
+        return ResponseEntity.ok(list);
     }
 }

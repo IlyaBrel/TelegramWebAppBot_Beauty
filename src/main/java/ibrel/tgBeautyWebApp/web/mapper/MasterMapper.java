@@ -16,12 +16,11 @@ public class MasterMapper {
         if (master == null) return null;
         return MasterDto.builder()
                 .id(master.getId())
+                .telegramId(master.getTelegramId())
                 .active(master.getActive())
                 .imageUrl(master.getImageUrl())
                 .personalData(personalMapper.toDto(master.getPersonalData()))
                 .address(addressMapper.toDto(master.getAddress()))
-                .experienceYears(master.getPersonalData() != null ? master.getPersonalData().getExperienceYears() : null)
-                .completedJobs(master.getPersonalData() != null ? master.getPersonalData().getCompletedJobs() : null)
                 .averageRating(averageRating)
                 .build();
     }
@@ -30,13 +29,22 @@ public class MasterMapper {
         return toDto(master, null);
     }
 
-    public Master toEntity(MasterDto dto) {
-        if (dto == null) return null;
-        Master m = new Master();
-        m.setId(dto.getId());
-        m.setActive(dto.getActive());
-        m.setImageUrl(dto.getImageUrl());
-        // personalData/address handled by specialized services to keep SRP
-        return m;
+
+
+    public Master toEntity(MasterDto master, Double averageRating) {
+        if (master == null) return null;
+        return Master.builder()
+                .id(master.getId())
+                .telegramId(master.getTelegramId())
+                .active(master.getActive())
+                .imageUrl(master.getImageUrl())
+                .personalData(personalMapper.toEntity(master.getPersonalData()))
+                .address(addressMapper.toEntity(master.getAddress()))
+                .build();
+    }
+
+    public Master toEntity(MasterDto master) {
+        return toEntity(master, null);
+
     }
 }

@@ -25,9 +25,8 @@ public class MasterController {
     private final MasterReviewService reviewService;
 
     @PostMapping
-    public ResponseEntity<MasterDto> create(@Valid @RequestBody MasterDto dto) {
-        Master entity = masterMapper.toEntity(dto);
-        Master created = masterService.create(entity);
+    public ResponseEntity<MasterDto> create(@Valid @RequestBody MasterDto master) {
+        Master created = masterService.create(masterMapper.toEntity(master, null));
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}")
                 .buildAndExpand(created.getId()).toUri();
         return ResponseEntity.created(location).body(masterMapper.toDto(created, reviewService.getAverageRating(created.getId())));

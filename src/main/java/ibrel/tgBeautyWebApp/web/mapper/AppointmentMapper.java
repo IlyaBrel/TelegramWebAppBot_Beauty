@@ -1,9 +1,12 @@
 package ibrel.tgBeautyWebApp.web.mapper;
 
+import ibrel.tgBeautyWebApp.dto.booking.AppointmentCreateRequestDto;
 import ibrel.tgBeautyWebApp.dto.booking.AppointmentItemDto;
 import ibrel.tgBeautyWebApp.dto.booking.AppointmentResponseDto;
 import ibrel.tgBeautyWebApp.model.booking.Appointment;
 import ibrel.tgBeautyWebApp.model.booking.AppointmentServiceItem;
+import ibrel.tgBeautyWebApp.model.master.Master;
+import ibrel.tgBeautyWebApp.model.master.WorkSlot;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -37,6 +40,7 @@ public class AppointmentMapper {
     public AppointmentResponseDto toDto(Appointment a) {
         return toDto(a, null, null);
     }
+
 
     private AppointmentItemDto toItemDto(AppointmentServiceItem item) {
         return AppointmentItemDto.builder()
