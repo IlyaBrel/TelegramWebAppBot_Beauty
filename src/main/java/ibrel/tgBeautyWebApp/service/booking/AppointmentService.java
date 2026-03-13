@@ -7,18 +7,34 @@ import java.util.List;
 
 public interface AppointmentService {
 
-    Appointment createAppointment(String clientId,
+    /** Создание заказа. Автоматически занимает нужное количество слотов. */
+    Appointment createAppointment(Long clientTelegramId,
                                   Long masterId,
-                                  Long slotId,
-                                  List<ServiceSelectionDto> services);
+                                  Long startSlotId,
+                                  List<ServiceSelectionDto> services,
+                                  Long certificateId);
 
     Appointment getById(Long id);
 
     List<Appointment> getByMaster(Long masterId);
 
-    List<Appointment> getByClient(String clientId);
+    List<Appointment> getByClient(Long clientTelegramId);
 
-    Appointment cancel(Long appointmentId, String byClientId);
+    // getByClientAndStatus() удалён — нигде не вызывался ни из одного контроллера.
+    // При необходимости фильтровать по статусу — добавить endpoint в AppointmentController.
 
-    Appointment confirm(Long appointmentId);
+    /** Отмена заказа пользователем */
+    Appointment cancelByClient(Long appointmentId, Long clientTelegramId);
+
+    /** Подтверждение мастером (через Telegram callback) */
+    Appointment confirmByMaster(Long appointmentId, Long masterTelegramId);
+
+    /** Отклонение мастером с причиной */
+    Appointment rejectByMaster(Long appointmentId, Long masterTelegramId, String reason);
+
+    /** Завершение заказа (вызывается мастером или планировщиком) */
+    Appointment complete(Long appointmentId, Long masterTelegramId);
+
+    /** Отправка запроса на отзыв после завершения */
+    void sendReviewRequest(Long appointmentId);
 }

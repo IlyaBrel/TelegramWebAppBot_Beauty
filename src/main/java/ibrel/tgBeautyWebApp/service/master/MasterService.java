@@ -1,38 +1,65 @@
 package ibrel.tgBeautyWebApp.service.master;
 
-import ibrel.tgBeautyWebApp.model.booking.Appointment;
-import ibrel.tgBeautyWebApp.model.master.*;
-import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
+import ibrel.tgBeautyWebApp.model.UserTG;
+import ibrel.tgBeautyWebApp.model.master.Master;
+import ibrel.tgBeautyWebApp.model.master.MasterReview;
 
 import java.util.List;
 
 public interface MasterService {
-    Master create(Master master);
-    Master update(Long id, Master master);
+
+    // ── CRUD ──────────────────────────────────────────────────────────────────
+
+    /** Создать мастера вручную (admin). */
+    Master create(Master master, Long adminTelegramId);
+
+    /**
+     * Автоматически создать первый профиль мастера на основе TG-профиля пользователя.
+     * Вызывается при смене роли пользователя на MASTER.
+     * Если профиль уже существует — возвращает первый существующий (идемпотентно).
+     */
+    Master createFromUser(UserTG user, Long adminTelegramId);
+
+    /**
+     * Создать дополнительный профиль мастера для пользователя с уже существующими профилями.
+     * profileName обязателен и должен быть уникальным для данного telegramId.
+     */
+    Master createAdditionalProfile(Long telegramId, String profileName, Long adminTelegramId);
+
+    Master update(Long id, Master master, Long requesterTelegramId);
+
     Master getById(Long id);
+
+    /** Первый профиль мастера по telegramId (для обратной совместимости). */
+    Master getByTelegramId(Long telegramId);
+
+    /** Все профили мастера по telegramId. */
+    List<Master> getAllByTelegramId(Long telegramId);
+
+    /** Все мастера включая неактивных — только для admin. */
     List<Master> getAll();
-    void delete(Long id);
+
+    List<Master> getAllActive();
+    List<Master> getByCity(Long cityId);
+    List<Master> getBySpecialty(Long specialtyId);
+    List<Master> getByCityAndSpecialty(Long cityId, Long specialtyId);
+
+    void delete(Long id, Long adminTelegramId);
+
     Master activate(Long id);
     Master deactivate(Long id);
 
-    // Delegation
-    MasterAddress updateAddress(Long masterId, MasterAddress address);
-    MasterPersonalData updatePersonalData(Long masterId, MasterPersonalData personalData);
+    // ── Специализации и удобства ──────────────────────────────────────────────
 
-    MasterServiceWork addServiceToMaster(Long masterId, MasterServiceWork service);
-    void removeServiceFromMaster(Long masterId, Long serviceId);
-    List<MasterServiceWork> getServices(Long masterId);
+    Master addSpecialties(Long masterId, List<Long> specialtyIds, Long adminTelegramId);
+    Master addAmenities(Long masterId, List<Long> amenityIds, Long adminTelegramId);
 
-    WorkSlot addWorkSlot(Long masterId, WorkSlot slot);
-    void removeWorkSlot(Long masterId, Long slotId);
-    List<WorkSlot> getSlots(Long masterId);
+    // ── Рейтинг ───────────────────────────────────────────────────────────────
 
-    MasterReview addReview(Long masterId, MasterReview review);
-    List<MasterReview> getReviews(Long masterId);
-    double getAverageRating(Long masterId);
+    Master setBoostedRating(Long masterId, Double rating, Long adminTelegramId);
 
-    MasterWorkExample addWorkExample(Long masterId, MasterWorkExample example);
-    List<MasterWorkExample> getWorks(Long masterId);
+    // ── Отзывы ────────────────────────────────────────────────────────────────
 
-    List<Appointment> getAppointments(Long masterId);
+    MasterReview addManualReview(Long masterId, MasterReview review, Long adminTelegramId);
+    void deleteReview(Long reviewId, Long adminTelegramId);
 }

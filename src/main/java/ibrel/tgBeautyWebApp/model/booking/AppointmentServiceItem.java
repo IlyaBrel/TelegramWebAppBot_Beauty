@@ -8,7 +8,10 @@ import lombok.*;
 import java.util.List;
 
 @Entity
-@Table(name = "appointment_service_items")
+@Table(name = "appointment_service_items", indexes = {
+        @Index(name = "idx_apt_item_appointment", columnList = "appointment_id"),
+        @Index(name = "idx_apt_item_service",     columnList = "service_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,9 +30,11 @@ public class AppointmentServiceItem {
     @JoinColumn(name = "service_id", nullable = false)
     private MasterServiceWork service;
 
-    @ManyToMany
-    @JoinTable(name = "appointment_item_variable_details",
-            joinColumns = @JoinColumn(name = "appointment_item_id"),
-            inverseJoinColumns = @JoinColumn(name = "variable_detail_id"))
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "appointment_item_variable_details",
+            joinColumns        = @JoinColumn(name = "appointment_item_id"),
+            inverseJoinColumns = @JoinColumn(name = "variable_detail_id")
+    )
     private List<VariableServiceDetails> variableDetails;
 }

@@ -3,8 +3,8 @@ package ibrel.tgBeautyWebApp.service.master.impl;
 import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
 import ibrel.tgBeautyWebApp.model.master.Master;
 import ibrel.tgBeautyWebApp.model.master.MasterAddress;
-import ibrel.tgBeautyWebApp.repository.MasterAddressRepository;
-import ibrel.tgBeautyWebApp.repository.MasterRepository;
+import ibrel.tgBeautyWebApp.repository.master.MasterAddressRepository;
+import ibrel.tgBeautyWebApp.repository.master.MasterRepository;
 import ibrel.tgBeautyWebApp.service.master.MasterAddressService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -82,7 +82,7 @@ public class MasterAddressServiceImpl implements MasterAddressService {
     @Override
     public MasterAddress getByMasterId(Long masterId) {
         Assert.notNull(masterId, "masterId must not be null");
-        return addressRepository.findByMasterId(masterId)
+        return addressRepository.findByMaster_Id(masterId)
                 .orElseThrow(() -> new EntityNotFoundException("Address not found for master id=" + masterId));
     }
 

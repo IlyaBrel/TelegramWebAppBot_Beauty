@@ -7,18 +7,23 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_user_telegram_id", columnList = "telegram_id"),
+        @Index(name = "idx_user_role",        columnList = "role"),
+        @Index(name = "idx_user_active",      columnList = "active")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @ToString
 public class UserTG {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "telegram_id", nullable = false, unique = true)
     private Long telegramId;
 
     private String username;
@@ -27,16 +32,20 @@ public class UserTG {
     private String languageCode;
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private UserRole role = UserRole.USER;
 
-    private Boolean active = true; // по умолчанию активен
+    @Builder.Default
+    private Boolean active = false;
 
+    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
 
-    // Кто создал пользователя (telegramId админа). Null для initial admin.
+    /** telegramId админа, который активировал/создал пользователя */
     private Long createdByAdminTelegramId;
 
-    // Пометка, что это первый админ системы
+    /** Первый администратор системы — нельзя удалить или разжаловать */
+    @Builder.Default
     private Boolean isInitialAdmin = false;
 }

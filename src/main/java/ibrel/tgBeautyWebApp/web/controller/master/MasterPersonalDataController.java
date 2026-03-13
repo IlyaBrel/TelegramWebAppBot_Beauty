@@ -3,7 +3,7 @@ package ibrel.tgBeautyWebApp.web.controller.master;
 import ibrel.tgBeautyWebApp.dto.master.MasterPersonalDataDto;
 import ibrel.tgBeautyWebApp.model.master.MasterPersonalData;
 import ibrel.tgBeautyWebApp.service.master.MasterPersonalDataService;
-import ibrel.tgBeautyWebApp.web.mapper.MasterPersonalDataMapper;
+import ibrel.tgBeautyWebApp.web.mapper.master.MasterPersonalDataMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -42,9 +42,4 @@ public class MasterPersonalDataController {
         return ResponseEntity.ok(mapper.toDto(pd));
     }
 
-    @DeleteMapping
-    public ResponseEntity<Void> delete(@PathVariable Long masterId) {
-        personalDataService.deleteByMasterId(masterId);
-        return ResponseEntity.noContent().build();
-    }
 }

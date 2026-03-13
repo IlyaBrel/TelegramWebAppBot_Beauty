@@ -2,34 +2,24 @@ package ibrel.tgBeautyWebApp.service.master;
 
 import ibrel.tgBeautyWebApp.model.master.WorkSlot;
 
-import java.time.LocalDate;
 import java.util.List;
 
 public interface WorkSlotService {
 
-    /**
-     * Создать слот для мастера.
-     */
     WorkSlot create(Long masterId, WorkSlot slot);
 
-    /**
-     * Обновить существующий слот.
-     */
     WorkSlot update(Long slotId, WorkSlot slot);
 
-    /**
-     * Удалить слот (проверка на существующие записи).
-     */
     void delete(Long slotId);
 
-    /**
-     * Получить все слоты мастера.
-     */
     List<WorkSlot> findByMaster(Long masterId);
 
     /**
-     * Получить доступные слоты мастера на конкретную дату.
-     * Реализовано через dayOfWeek в WorkSlot (MONDAY..SUNDAY).
+     * Только свободные слоты (не занятые активными заказами).
+     * dayOfWeek — строка MONDAY / TUESDAY / ... / SUNDAY.
+     *
+     * findAvailable(Long, LocalDate) удалён — нигде не вызывался.
+     * MasterService экспонирует этот метод как getFreeSlots(Long, String).
      */
-    List<WorkSlot> findAvailable(Long masterId, LocalDate date);
+    List<WorkSlot> findFree(Long masterId, String dayOfWeek);
 }

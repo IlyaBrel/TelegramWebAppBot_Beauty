@@ -20,15 +20,12 @@ public class MasterWorkExample {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, length = 200)
     private String title;
 
     @Column(length = 2000)
     private String description;
 
-    /**
-     * Ссылка на изображение/файл (URL в S3, CDN или относительный путь).
-     * Для больших файлов хранение в БД не рекомендуется.
-     */
     @Column(name = "image_url", length = 1000)
     private String imageUrl;
 

@@ -3,8 +3,8 @@ package ibrel.tgBeautyWebApp.service.master.impl;
 import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
 import ibrel.tgBeautyWebApp.model.master.Master;
 import ibrel.tgBeautyWebApp.model.master.MasterWorkExample;
-import ibrel.tgBeautyWebApp.repository.MasterRepository;
-import ibrel.tgBeautyWebApp.repository.MasterWorkExampleRepository;
+import ibrel.tgBeautyWebApp.repository.master.MasterRepository;
+import ibrel.tgBeautyWebApp.repository.master.MasterWorkExampleRepository;
 import ibrel.tgBeautyWebApp.service.master.MasterWorkExampleService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +53,7 @@ public class MasterWorkExampleServiceImpl implements MasterWorkExampleService {
     public List<MasterWorkExample> getByMaster(Long masterId) {
         Assert.notNull(masterId, "masterId must not be null");
         if (!masterRepository.existsById(masterId)) throw new EntityNotFoundException("Master not found id=" + masterId);
-        return exampleRepository.findByMasterIdOrderByCreatedAtDesc(masterId);
+        return exampleRepository.findByMaster_IdOrderByCreatedAtDesc(masterId);
     }
 
     @Override

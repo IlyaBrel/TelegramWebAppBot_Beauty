@@ -10,6 +10,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class MasterAddress {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -22,6 +23,12 @@ public class MasterAddress {
 
     @Column(name = "place_on_the_map", length = 500)
     private String placeOnTheMap;
+
+    /** Широта для отображения на карте */
+    private Double latitude;
+
+    /** Долгота для отображения на карте */
+    private Double longitude;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "master_id", unique = true)

@@ -3,7 +3,7 @@ package ibrel.tgBeautyWebApp.web.controller.master;
 import ibrel.tgBeautyWebApp.dto.master.WorkSlotDto;
 import ibrel.tgBeautyWebApp.model.master.WorkSlot;
 import ibrel.tgBeautyWebApp.service.master.WorkSlotService;
-import ibrel.tgBeautyWebApp.web.mapper.WorkSlotMapper;
+import ibrel.tgBeautyWebApp.web.mapper.master.WorkSlotMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -81,7 +81,7 @@ public class WorkSlotController {
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
         Assert.notNull(date, "date must not be null");
-        List<WorkSlotDto> list = slotService.findAvailable(masterId, date).stream()
+        List<WorkSlotDto> list = slotService.findFree(masterId, String.valueOf(date.getDayOfWeek())).stream()
                 .map(mapper::toDto)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(list);

@@ -27,7 +27,6 @@ public class MasterPersonalData {
     private String phone;
     private Integer experienceYears;
     private Integer completedJobs;
-
     private String instUserId;
 
     @OneToOne(fetch = FetchType.LAZY)

@@ -17,26 +17,26 @@ public class AppointmentCalcController {
     private final AppointmentCalcService calcService;
 
     @PostMapping("/calc")
-    public ResponseEntity<AppointmentCalcResponseDto> calculate(@Valid @RequestBody AppointmentCalcRequestDto req) {
-        AppointmentCalcResponseDto result = calcService.calculate(req);
-        return ResponseEntity.ok(result);
+    public ResponseEntity<AppointmentCalcResponseDto> calculate(
+            @Valid @RequestBody AppointmentCalcRequestDto req) {
+        return ResponseEntity.ok(calcService.calculate(req));
     }
 
     @PostMapping("/check-availability")
-    public ResponseEntity<AppointmentAvailabilityResponseDto> checkAvailability(@Valid @RequestBody AppointmentCalcRequestDto req) {
-        AppointmentAvailabilityResponseDto result = calcService.checkAvailability(req);
-        return ResponseEntity.ok(result);
+    public ResponseEntity<AppointmentAvailabilityResponseDto> checkAvailability(
+            @Valid @RequestBody AppointmentCalcRequestDto req) {
+        return ResponseEntity.ok(calcService.checkAvailability(req));
     }
 
     @PostMapping("/nearest-slots")
-    public ResponseEntity<List<WorkSlotShortDto>> findNearestSlots(@Valid @RequestBody NearestSlotsRequestDto req) {
-        List<WorkSlotShortDto> slots = calcService.findNearestSlots(req);
-        return ResponseEntity.ok(slots);
+    public ResponseEntity<List<WorkSlotShortDto>> findNearestSlots(
+            @Valid @RequestBody NearestSlotsRequestDto req) {
+        return ResponseEntity.ok(calcService.findNearestSlots(req));
     }
 
     @PostMapping("/optimal-slot")
-    public ResponseEntity<OptimalSlotResponseDto> findOptimalSlot(@Valid @RequestBody NearestSlotsRequestDto req) {
-        OptimalSlotResponseDto opt = calcService.findOptimalSlot(req);
-        return ResponseEntity.ok(opt);
+    public ResponseEntity<OptimalSlotResponseDto> findOptimalSlot(
+            @Valid @RequestBody NearestSlotsRequestDto req) {
+        return ResponseEntity.ok(calcService.findOptimalSlot(req));
     }
 }

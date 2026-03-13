@@ -31,10 +31,19 @@ public class MasterReview {
     private String comment;
 
     /**
-     * Идентификатор автора отзыва (может быть userId из системы или внешний id)
+     * Идентификатор автора отзыва (telegramId.toString() или внешний id)
      */
     @Column(name = "author_id", length = 200)
     private String authorId;
+
+    /**
+     * true — отзыв добавлен вручную администратором (не настоящий клиент).
+     * Используется для продвижения новых мастеров.
+     * По умолчанию false.
+     */
+    @Column(name = "is_manual", nullable = false)
+    @Builder.Default
+    private Boolean isManual = false;
 
     private OffsetDateTime createdAt;
 

@@ -6,5 +6,5 @@ public interface MasterPersonalDataService {
     MasterPersonalData create(Long masterId, MasterPersonalData personalData);
     MasterPersonalData update(Long masterId, MasterPersonalData personalData);
     MasterPersonalData getByMasterId(Long masterId);
-    void deleteByMasterId(Long masterId);
+    void deleteByMaster_Id(Long masterId);
 }

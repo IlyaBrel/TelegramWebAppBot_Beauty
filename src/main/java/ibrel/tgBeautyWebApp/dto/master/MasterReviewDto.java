@@ -23,10 +23,16 @@ public class MasterReviewDto {
     @Size(max = 2000, message = "comment length must be <= 2000")
     private String comment;
 
-    @NotNull(message = "authorId is required")
-    private String authorId;
+    /** TelegramId автора отзыва */
+    private Long authorTelegramId;
+
+    /** Имя автора для отображения (из UserTG) */
+    private String authorName;
+
+    private Boolean isManual;
 
     private OffsetDateTime createdAt;
 
+    /** ID записи, к которой привязан отзыв (если есть) */
     private Long appointmentId;
 }

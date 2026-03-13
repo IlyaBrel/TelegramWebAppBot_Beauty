@@ -3,7 +3,7 @@ package ibrel.tgBeautyWebApp.web.controller.master;
 import ibrel.tgBeautyWebApp.dto.master.MasterWorkExampleDto;
 import ibrel.tgBeautyWebApp.model.master.MasterWorkExample;
 import ibrel.tgBeautyWebApp.service.master.MasterWorkExampleService;
-import ibrel.tgBeautyWebApp.web.mapper.MasterWorkExampleMapper;
+import ibrel.tgBeautyWebApp.web.mapper.master.MasterWorkExampleMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

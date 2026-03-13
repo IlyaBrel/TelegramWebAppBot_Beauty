@@ -1,11 +1,12 @@
 package ibrel.tgBeautyWebApp.service.master.impl;
 
 import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
+import ibrel.tgBeautyWebApp.model.booking.Appointment;
 import ibrel.tgBeautyWebApp.model.master.Master;
 import ibrel.tgBeautyWebApp.model.master.WorkSlot;
-import ibrel.tgBeautyWebApp.repository.AppointmentRepository;
-import ibrel.tgBeautyWebApp.repository.MasterRepository;
-import ibrel.tgBeautyWebApp.repository.WorkSlotRepository;
+import ibrel.tgBeautyWebApp.repository.appointment.AppointmentSlotRepository;
+import ibrel.tgBeautyWebApp.repository.master.MasterRepository;
+import ibrel.tgBeautyWebApp.repository.master.WorkSlotRepository;
 import ibrel.tgBeautyWebApp.service.master.WorkSlotService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -25,7 +24,7 @@ public class WorkSlotServiceImpl implements WorkSlotService {
 
     private final MasterRepository masterRepository;
     private final WorkSlotRepository workSlotRepository;
-    private final AppointmentRepository appointmentRepository;
+    private final AppointmentSlotRepository appointmentSlotRepository;
 
     @Override
     @Transactional
@@ -39,19 +38,13 @@ public class WorkSlotServiceImpl implements WorkSlotService {
         if (!slot.getEndTime().isAfter(slot.getStartTime())) {
             throw new IllegalArgumentException("endTime must be after startTime");
         }
+        validateDayOfWeek(slot.getDayOfWeek());
 
         Master master = masterRepository.findById(masterId)
                 .orElseThrow(() -> new EntityNotFoundException("Master not found id=" + masterId));
 
-        // Проверка пересечения: ищем слоты того же дня недели
-        List<WorkSlot> existing = workSlotRepository.findByMasterIdAndDayOfWeek(masterId, slot.getDayOfWeek());
-        for (WorkSlot s : existing) {
-            boolean overlap = !(slot.getEndTime().isBefore(s.getStartTime()) || slot.getStartTime().isAfter(s.getEndTime()));
-            if (overlap) {
-                log.warn("New slot overlaps with existing slot id={} for master id={}", s.getId(), masterId);
-                throw new IllegalArgumentException("New slot overlaps with existing slot id=" + s.getId());
-            }
-        }
+        List<WorkSlot> existing = workSlotRepository.findByMaster_IdAndDayOfWeek(masterId, slot.getDayOfWeek());
+        checkOverlap(slot, existing, null);
 
         slot.setMaster(master);
         WorkSlot saved = workSlotRepository.save(slot);
@@ -78,25 +71,22 @@ public class WorkSlotServiceImpl implements WorkSlotService {
         Long masterId = existing.getMaster() != null ? existing.getMaster().getId() : null;
         if (masterId == null) throw new IllegalStateException("Slot has no master assigned");
 
-        // Проверка пересечения с другими слотами мастера (исключая текущий) для указанного дня
-        List<WorkSlot> others = workSlotRepository.findByMasterIdAndDayOfWeek(masterId, slot.getDayOfWeek());
-        for (WorkSlot s : others) {
-            if (s.getId().equals(slotId)) continue;
-            boolean overlap = !(slot.getEndTime().isBefore(s.getStartTime()) || slot.getStartTime().isAfter(s.getEndTime()));
-            if (overlap) {
-                log.warn("Updated slot would overlap with existing slot id={} for master id={}", s.getId(), masterId);
-                throw new IllegalArgumentException("Updated slot overlaps with existing slot id=" + s.getId());
+        // Нельзя менять время/день если слот занят активной записью
+        boolean hasActive = appointmentSlotRepository.existsBySlotIdAndActive(slotId,
+                Appointment.Status.CANCELLED,
+                Appointment.Status.REJECTED);
+        if (hasActive) {
+            boolean timeChanged = !slot.getStartTime().equals(existing.getStartTime())
+                    || !slot.getEndTime().equals(existing.getEndTime())
+                    || !slot.getDayOfWeek().equals(existing.getDayOfWeek());
+            if (timeChanged) {
+                throw new IllegalStateException(
+                        "Cannot change slot time/day: active appointments exist on this slot");
             }
         }
 
-        boolean hasAppointments = appointmentRepository.existsBySlot_Id(slotId);
-        if (hasAppointments) {
-            if (!slot.getStartTime().equals(existing.getStartTime()) || !slot.getEndTime().equals(existing.getEndTime())
-                    || !slot.getDayOfWeek().equals(existing.getDayOfWeek())) {
-                log.warn("Attempt to change times/day of slot id={} with existing appointments", slotId);
-                throw new IllegalStateException("Cannot change slot time/day because there are existing appointments");
-            }
-        }
+        List<WorkSlot> others = workSlotRepository.findByMaster_IdAndDayOfWeek(masterId, slot.getDayOfWeek());
+        checkOverlap(slot, others, slotId);
 
         existing.setDayOfWeek(slot.getDayOfWeek());
         existing.setStartTime(slot.getStartTime());
@@ -104,7 +94,7 @@ public class WorkSlotServiceImpl implements WorkSlotService {
         existing.setNote(slot.getNote());
 
         WorkSlot saved = workSlotRepository.save(existing);
-        log.info("Updated work slot id={}", saved.getId());
+        log.info("Updated work slot id={}", slotId);
         return saved;
     }
 
@@ -112,13 +102,13 @@ public class WorkSlotServiceImpl implements WorkSlotService {
     @Transactional
     public void delete(Long slotId) {
         Assert.notNull(slotId, "slotId must not be null");
-        WorkSlot existing = workSlotRepository.findById(slotId)
+        workSlotRepository.findById(slotId)
                 .orElseThrow(() -> new EntityNotFoundException("Slot not found id=" + slotId));
 
-        boolean hasAppointments = appointmentRepository.existsBySlot_Id(slotId);
-        if (hasAppointments) {
-            log.warn("Attempt to delete slot id={} with existing appointments", slotId);
-            throw new IllegalStateException("Cannot delete slot with existing appointments");
+        if (appointmentSlotRepository.existsBySlotIdAndActive(slotId,
+                Appointment.Status.CANCELLED,
+                Appointment.Status.REJECTED)) {
+            throw new IllegalStateException("Cannot delete slot with active appointments");
         }
 
         workSlotRepository.deleteById(slotId);
@@ -128,20 +118,48 @@ public class WorkSlotServiceImpl implements WorkSlotService {
     @Override
     public List<WorkSlot> findByMaster(Long masterId) {
         Assert.notNull(masterId, "masterId must not be null");
-        if (!masterRepository.existsById(masterId)) throw new EntityNotFoundException("Master not found id=" + masterId);
-        return workSlotRepository.findByMasterId(masterId);
+        if (!masterRepository.existsById(masterId))
+            throw new EntityNotFoundException("Master not found id=" + masterId);
+        return workSlotRepository.findByMaster_IdOrderByDayOfWeekAscStartTimeAsc(masterId);
     }
 
+    /**
+     * Свободные слоты мастера на конкретный день недели.
+     * findAvailable(Long, LocalDate) удалён — нигде не вызывался.
+     * Единственный потребитель нужного функционала — AppointmentCalcService —
+     * работает с workSlotRepository напрямую.
+     */
     @Override
-    public List<WorkSlot> findAvailable(Long masterId, LocalDate date) {
+    public List<WorkSlot> findFree(Long masterId, String dayOfWeek) {
         Assert.notNull(masterId, "masterId must not be null");
-        Assert.notNull(date, "date must not be null");
-        if (!masterRepository.existsById(masterId)) throw new EntityNotFoundException("Master not found id=" + masterId);
+        Assert.notNull(dayOfWeek, "dayOfWeek must not be null");
+        validateDayOfWeek(dayOfWeek);
+        if (!masterRepository.existsById(masterId))
+            throw new EntityNotFoundException("Master not found id=" + masterId);
+        return workSlotRepository.findFreeSlots(masterId, dayOfWeek);
+    }
 
-        DayOfWeek dow = date.getDayOfWeek();
-        String dayName = dow.name(); // MONDAY, TUESDAY...
+    // ── Вспомогательные ───────────────────────────────────────────────────────
 
-        // Возвращаем все слоты для этого дня; фронт/клиент решит, какие из них свободны по времени
-        return workSlotRepository.findByMasterIdAndDayOfWeek(masterId, dayName);
+    private void checkOverlap(WorkSlot newSlot, List<WorkSlot> existing, Long excludeSlotId) {
+        for (WorkSlot s : existing) {
+            if (excludeSlotId != null && s.getId().equals(excludeSlotId)) continue;
+            boolean overlap = !(newSlot.getEndTime().isBefore(s.getStartTime())
+                    || newSlot.getStartTime().isAfter(s.getEndTime()));
+            if (overlap) {
+                throw new IllegalArgumentException(
+                        "Slot overlaps with existing slot id=" + s.getId()
+                                + " [" + s.getStartTime() + " - " + s.getEndTime() + "]");
+            }
+        }
+    }
+
+    private void validateDayOfWeek(String day) {
+        try {
+            DayOfWeek.valueOf(day.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid dayOfWeek: " + day
+                    + ". Must be one of: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY");
+        }
     }
 }

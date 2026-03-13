@@ -5,7 +5,7 @@ import ibrel.tgBeautyWebApp.model.master.service.FixedServiceDetails;
 import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
 import ibrel.tgBeautyWebApp.model.master.service.VariableServiceDetails;
 import ibrel.tgBeautyWebApp.service.master.MasterServiceWorkService;
-import ibrel.tgBeautyWebApp.web.mapper.MasterServiceWorkMapper;
+import ibrel.tgBeautyWebApp.web.mapper.master.MasterServiceWorkMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
