@@ -32,7 +32,8 @@ public class AppointmentController {
                 req.getMasterId(),
                 req.getStartSlotId(),
                 req.getServices(),
-                req.getCertificateCode()
+                req.getPromoCode(),
+                req.getBonusAmountToUse()
         );
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()

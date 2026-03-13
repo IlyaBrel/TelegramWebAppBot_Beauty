@@ -2,6 +2,7 @@ package ibrel.tgBeautyWebApp.dto.booking;
 
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -30,9 +31,17 @@ public class AppointmentResponseDto {
     private Integer totalDurationMinutes;
     private Double  totalPrice;
 
-    /** true если запись оплачена сертификатом */
-    private Boolean paidByCertificate;
-    private String  certificateCode;
+    /** Код применённого промокода (null если не использовался) */
+    private String promoCode;
+
+    /** Сумма скидки по промокоду */
+    private BigDecimal promoDiscountAmount;
+
+    /** Списанные бонусы */
+    private BigDecimal bonusAmountUsed;
+
+    /** Начисленный кэшбэк после завершения */
+    private BigDecimal cashbackAmount;
 
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;

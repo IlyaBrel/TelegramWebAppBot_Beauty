@@ -5,7 +5,6 @@ import ibrel.tgBeautyWebApp.exception.EntityNotFoundException;
 import ibrel.tgBeautyWebApp.model.booking.Appointment;
 import ibrel.tgBeautyWebApp.model.booking.AppointmentServiceItem;
 import ibrel.tgBeautyWebApp.model.booking.AppointmentSlot;
-import ibrel.tgBeautyWebApp.model.certificate.Certificate;
 import ibrel.tgBeautyWebApp.model.master.Master;
 import ibrel.tgBeautyWebApp.model.master.WorkSlot;
 import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
@@ -13,7 +12,6 @@ import ibrel.tgBeautyWebApp.model.master.service.VariableServiceDetails;
 import ibrel.tgBeautyWebApp.repository.appointment.AppointmentRepository;
 import ibrel.tgBeautyWebApp.repository.appointment.AppointmentServiceItemRepository;
 import ibrel.tgBeautyWebApp.repository.appointment.AppointmentSlotRepository;
-import ibrel.tgBeautyWebApp.repository.certificate.CertificateRepository;
 import ibrel.tgBeautyWebApp.repository.master.MasterRepository;
 import ibrel.tgBeautyWebApp.repository.master.MasterServiceWorkRepository;
 import ibrel.tgBeautyWebApp.repository.master.VariableServiceDetailsRepository;
@@ -26,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -47,8 +46,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final WorkSlotRepository workSlotRepository;
     private final MasterServiceWorkRepository masterServiceWorkRepository;
     private final VariableServiceDetailsRepository variableServiceDetailsRepository;
-    private final CertificateRepository certificateRepository;
-    private final TelegramNotificationService     telegramService;
+    private final TelegramNotificationService telegramService;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
@@ -61,7 +59,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                          Long masterId,
                                          Long startSlotId,
                                          List<ServiceSelectionDto> services,
-                                         Long certificateId) {
+                                         String promoCode,
+                                         BigDecimal bonusAmountToUse) {
 
         Assert.notNull(clientTelegramId, "clientTelegramId must not be null");
         Assert.notNull(masterId,         "masterId must not be null");
@@ -79,7 +78,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         // ── Подсчёт услуг ────────────────────────────────────────────────────
-        CalcResult calc = calculateServices(masterId, services, certificateId);
+        CalcResult calc = calculateServices(masterId, services);
 
         // ── Подбор нужного количества слотов ─────────────────────────────────
         List<WorkSlot> bookedSlots = resolveSlots(master, startSlot, calc.totalDuration);
@@ -93,6 +92,8 @@ public class AppointmentServiceImpl implements AppointmentService {
             }
         }
 
+        BigDecimal bonusUsed  = bonusAmountToUse != null ? bonusAmountToUse : BigDecimal.ZERO;
+
         // ── Сборка заказа ─────────────────────────────────────────────────────
         Appointment appointment = Appointment.builder()
                 .clientTelegramId(clientTelegramId)
@@ -100,7 +101,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .status(Appointment.Status.PENDING)
                 .totalDurationMinutes(calc.totalDuration)
                 .totalPrice(calc.totalPrice)
-                .certificateId(certificateId)
+                .bonusAmountUsed(bonusUsed)
                 .createdAt(OffsetDateTime.now())
                 .build();
 
@@ -120,16 +121,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         for (AppointmentServiceItem item : calc.items) {
             item.setAppointment(saved);
             itemRepository.save(item);
-        }
-
-        // Отмечаем сертификат как использованный
-        if (certificateId != null) {
-            Certificate cert = certificateRepository.findById(certificateId)
-                    .orElseThrow(() -> new EntityNotFoundException("Certificate not found"));
-            cert.setStatus(Certificate.CertificateStatus.USED);
-            cert.setUsedAt(OffsetDateTime.now());
-            cert.setUsedInAppointmentId(saved.getId());
-            certificateRepository.save(cert);
         }
 
         // Уведомляем мастера
@@ -367,28 +358,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     /** Считает итоговую стоимость, длительность и формирует items. */
     private CalcResult calculateServices(Long masterId,
-                                         List<ServiceSelectionDto> services,
-                                         Long certificateId) {
+                                         List<ServiceSelectionDto> services) {
         int    totalDuration = 0;
         double totalPrice    = 0.0;
         List<AppointmentServiceItem> items = new ArrayList<>();
-
-        // Услуги из сертификата — цена 0
-        List<Long> certServiceIds = List.of();
-        if (certificateId != null) {
-            Certificate cert = certificateRepository.findById(certificateId)
-                    .orElseThrow(() -> new EntityNotFoundException("Certificate not found id=" + certificateId));
-
-            if (cert.getStatus() != Certificate.CertificateStatus.ACTIVE) {
-                throw new IllegalStateException("Certificate is not active");
-            }
-            if (!cert.getMaster().getId().equals(masterId)) {
-                throw new IllegalArgumentException("Certificate does not belong to this master");
-            }
-            certServiceIds = cert.getServices().stream()
-                    .map(MasterServiceWork::getId)
-                    .collect(Collectors.toList());
-        }
 
         for (ServiceSelectionDto sel : services) {
             MasterServiceWork service = masterServiceWorkRepository.findById(sel.getServiceId())
@@ -401,7 +374,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 throw new IllegalArgumentException("Service id=" + sel.getServiceId() + " is not active");
             }
 
-            boolean isCertService = certServiceIds.contains(service.getId());
             List<VariableServiceDetails> vars = new ArrayList<>();
 
             switch (service.getType()) {
@@ -409,8 +381,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                     if (service.getFixedDetails() == null)
                         throw new IllegalArgumentException("Fixed service has no details id=" + service.getId());
                     totalDuration += Optional.ofNullable(service.getFixedDetails().getDurationMinutes()).orElse(0);
-                    if (!isCertService)
-                        totalPrice += Optional.ofNullable(service.getFixedDetails().getPrice()).orElse(0.0);
+                    totalPrice    += Optional.ofNullable(service.getFixedDetails().getPrice()).orElse(0.0);
                 }
                 case VARIABLE -> {
                     if (sel.getVariableDetailIds() == null || sel.getVariableDetailIds().isEmpty())
@@ -422,8 +393,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                             throw new IllegalArgumentException("Variable detail does not belong to service");
                         vars.add(v);
                         totalDuration += Optional.ofNullable(v.getDurationMinutes()).orElse(0);
-                        if (!isCertService)
-                            totalPrice += Optional.ofNullable(v.getPrice()).orElse(0.0);
+                        totalPrice    += Optional.ofNullable(v.getPrice()).orElse(0.0);
                     }
                 }
             }

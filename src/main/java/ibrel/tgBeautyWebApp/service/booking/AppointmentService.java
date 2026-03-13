@@ -3,25 +3,27 @@ package ibrel.tgBeautyWebApp.service.booking;
 import ibrel.tgBeautyWebApp.dto.booking.ServiceSelectionDto;
 import ibrel.tgBeautyWebApp.model.booking.Appointment;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface AppointmentService {
 
-    /** Создание заказа. Автоматически занимает нужное количество слотов. */
+    /**
+     * Создание заказа. Автоматически занимает нужное количество слотов.
+     * XOR-правило: нельзя одновременно указать promoCode и bonusAmountToUse.
+     */
     Appointment createAppointment(Long clientTelegramId,
                                   Long masterId,
                                   Long startSlotId,
                                   List<ServiceSelectionDto> services,
-                                  Long certificateId);
+                                  String promoCode,
+                                  BigDecimal bonusAmountToUse);
 
     Appointment getById(Long id);
 
     List<Appointment> getByMaster(Long masterId);
 
     List<Appointment> getByClient(Long clientTelegramId);
-
-    // getByClientAndStatus() удалён — нигде не вызывался ни из одного контроллера.
-    // При необходимости фильтровать по статусу — добавить endpoint в AppointmentController.
 
     /** Отмена заказа пользователем */
     Appointment cancelByClient(Long appointmentId, Long clientTelegramId);
@@ -32,7 +34,10 @@ public interface AppointmentService {
     /** Отклонение мастером с причиной */
     Appointment rejectByMaster(Long appointmentId, Long masterTelegramId, String reason);
 
-    /** Завершение заказа (вызывается мастером или планировщиком) */
+    /**
+     * Завершение заказа (вызывается мастером или планировщиком).
+     * Автоматически начисляет кэшбэк и обновляет реферальные счётчики.
+     */
     Appointment complete(Long appointmentId, Long masterTelegramId);
 
     /** Отправка запроса на отзыв после завершения */

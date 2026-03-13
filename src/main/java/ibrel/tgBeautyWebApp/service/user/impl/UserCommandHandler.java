@@ -1,7 +1,6 @@
 package ibrel.tgBeautyWebApp.service.user.impl;
 
 import ibrel.tgBeautyWebApp.service.booking.AppointmentService;
-import ibrel.tgBeautyWebApp.service.certificate.CertificatePurchaseService;
 import ibrel.tgBeautyWebApp.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,10 +29,9 @@ import java.util.Objects;
 @Slf4j
 public class UserCommandHandler {
 
-    private final UserService                userService;
-    private final AppointmentService         appointmentService;
-    private final CertificatePurchaseService certificatePurchaseService;
-    private final TelegramClient             telegramClient;
+    private final UserService        userService;
+    private final AppointmentService appointmentService;
+    private final TelegramClient     telegramClient;
 
     /** URL фронтенда WebApp — берётся из application.properties */
     @Value("${webapp.url}")
@@ -153,18 +151,6 @@ public class UserCommandHandler {
                                 "<code>reject_reason:" + appointmentId + " Причина</code>");
                 answerCallback(callback.getId(), "Введите причину");
 
-            } else if (data.startsWith("cert_approve:")) {
-                Long requestId = Long.parseLong(data.split(":")[1]);
-                certificatePurchaseService.approvePurchase(requestId, senderTelegramId);
-                answerCallback(callback.getId(), "✅ Сертификат выдан покупателю");
-
-            } else if (data.startsWith("cert_reject:")) {
-                Long requestId = Long.parseLong(data.split(":")[1]);
-                sendText(senderTelegramId,
-                        "✍️ Напишите причину отклонения заявки на сертификат #" + requestId + ":\n\n" +
-                                "<code>cert_reject_reason:" + requestId + " Причина</code>");
-                answerCallback(callback.getId(), "Введите причину");
-
             } else if (data.startsWith("review:")) {
                 Long appointmentId = Long.parseLong(data.split(":")[1]);
                 sendText(senderTelegramId,
@@ -192,12 +178,6 @@ public class UserCommandHandler {
                 appointmentService.rejectByMaster(appointmentId, senderTelegramId, reason);
                 sendText(senderTelegramId, "✅ Заявка #" + appointmentId + " отклонена.");
 
-            } else if (text.startsWith("cert_reject_reason:")) {
-                String[] parts = text.split(" ", 2);
-                Long requestId = Long.parseLong(parts[0].split(":")[1]);
-                String reason  = parts.length > 1 ? parts[1] : "Причина не указана";
-                certificatePurchaseService.rejectPurchase(requestId, senderTelegramId, reason);
-                sendText(senderTelegramId, "✅ Заявка на сертификат #" + requestId + " отклонена.");
             }
         } catch (Exception e) {
             log.error("Error handling master text reply: {}", e.getMessage());

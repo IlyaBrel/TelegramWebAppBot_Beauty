@@ -2,10 +2,12 @@ package ibrel.tgBeautyWebApp.model.booking;
 
 import ibrel.tgBeautyWebApp.model.master.Master;
 import ibrel.tgBeautyWebApp.model.master.WorkSlot;
+import ibrel.tgBeautyWebApp.model.promo.MasterPromoCode;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -68,19 +70,27 @@ public class Appointment {
     private Double totalPrice;
 
     /**
-     * ID сертификата, использованного при записи.
-     * null — оплата стандартная.
+     * Бонусы, списанные с бонусного счёта клиента.
+     * XOR с promoCode — нельзя использовать оба одновременно.
      */
-    @Column(name = "certificate_id")
-    private Long certificateId;
-
-    // В модель Appointment добавить:
-    @Column(name = "paid_by_certificate")
+    @Column(name = "bonus_amount_used", precision = 12, scale = 2)
     @Builder.Default
-    private Boolean paidByCertificate = false;
+    private BigDecimal bonusAmountUsed = BigDecimal.ZERO;
 
-    @Column(name = "certificate_code", length = 20)
-    private String certificateCode;
+    /** Применённый промокод (null если оплата бонусами или без скидки) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promo_code_id")
+    private MasterPromoCode promoCode;
+
+    /** Сумма скидки по промокоду */
+    @Column(name = "promo_discount_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal promoDiscountAmount = BigDecimal.ZERO;
+
+    /** Начисленный кэшбэк (после завершения записи) */
+    @Column(name = "cashback_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal cashbackAmount = BigDecimal.ZERO;
 
     /** Причина отклонения/отмены (заполняется мастером или системой) */
     @Column(name = "rejection_reason", length = 1000)

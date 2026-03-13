@@ -42,9 +42,8 @@ public class AppointmentMapper {
             masterName = a.getMaster().getPersonalData().getFirstName();
         }
 
-        // Сертификат — определяем по наличию items с нулевой ценой через флаг на Appointment
-        boolean paidByCertificate = Boolean.TRUE.equals(a.getPaidByCertificate());
-        String  certificateCode   = a.getCertificateCode();
+        // Код промокода
+        String promoCode = a.getPromoCode() != null ? a.getPromoCode().getCode() : null;
 
         return AppointmentResponseDto.builder()
                 .id(a.getId())
@@ -57,8 +56,10 @@ public class AppointmentMapper {
                 .items(items)
                 .totalDurationMinutes(totalDuration)
                 .totalPrice(totalPrice)
-                .paidByCertificate(paidByCertificate)
-                .certificateCode(certificateCode)
+                .promoCode(promoCode)
+                .promoDiscountAmount(a.getPromoDiscountAmount())
+                .bonusAmountUsed(a.getBonusAmountUsed())
+                .cashbackAmount(a.getCashbackAmount())
                 .createdAt(a.getCreatedAt())
                 .updatedAt(a.getUpdatedAt())
                 .build();

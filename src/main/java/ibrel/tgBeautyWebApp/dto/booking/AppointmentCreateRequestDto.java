@@ -3,6 +3,8 @@ package ibrel.tgBeautyWebApp.dto.booking;
 import lombok.*;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -11,7 +13,7 @@ import java.util.List;
 @Builder
 public class AppointmentCreateRequestDto {
 
-    /** TelegramId клиента (не String) */
+    /** TelegramId клиента */
     @NotNull(message = "clientTelegramId is required")
     private Long clientTelegramId;
 
@@ -25,6 +27,15 @@ public class AppointmentCreateRequestDto {
     @NotEmpty(message = "services must not be empty")
     private List<ServiceSelectionDto> services;
 
-    /** Код сертификата (опционально — если пользователь оплачивает сертификатом) */
-    private Long certificateCode;
+    /**
+     * Код промокода (опционально).
+     * XOR с bonusAmountToUse — нельзя использовать оба одновременно.
+     */
+    private String promoCode;
+
+    /**
+     * Сумма для списания с бонусного счёта (опционально).
+     * XOR с promoCode — нельзя использовать оба одновременно.
+     */
+    private BigDecimal bonusAmountToUse;
 }

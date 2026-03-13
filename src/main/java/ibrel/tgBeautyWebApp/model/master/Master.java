@@ -2,10 +2,13 @@ package ibrel.tgBeautyWebApp.model.master;
 
 import ibrel.tgBeautyWebApp.model.booking.Appointment;
 import ibrel.tgBeautyWebApp.model.master.service.MasterServiceWork;
+import ibrel.tgBeautyWebApp.model.promo.MasterPromoCode;
+import ibrel.tgBeautyWebApp.model.promo.MasterServiceDiscount;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -123,6 +126,18 @@ public class Master {
     @OneToMany(mappedBy = "master")
     @JsonIgnore
     private List<Appointment> appointments;
+
+    /** Персональный % кэшбэка. null = использовать глобальный из AppSettings */
+    @Column(name = "cashback_percent", precision = 5, scale = 2)
+    private BigDecimal cashbackPercent;
+
+    @OneToMany(mappedBy = "master", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<MasterServiceDiscount> serviceDiscounts;
+
+    @OneToMany(mappedBy = "master", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<MasterPromoCode> promoCodes;
 
     // ── Helper методы ─────────────────────────────────────────────────────────
 
